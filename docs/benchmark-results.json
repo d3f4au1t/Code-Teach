@@ -1,0 +1,44 @@
+{
+  "node": "v22.22.2",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M3",
+  "results": [
+    {
+      "scenario": "small",
+      "files": 100,
+      "bytes": 10315,
+      "coldMs": 87.78,
+      "cachedP50Ms": 0.002,
+      "cachedP95Ms": 0.007,
+      "afterEditMs": 13.32,
+      "workerRoundTripMs": 276.29,
+      "mainThreadTimerTicks": 45,
+      "rssMiB": 160.9
+    },
+    {
+      "scenario": "small",
+      "files": 1000,
+      "bytes": 107512,
+      "coldMs": 217.11,
+      "cachedP50Ms": 0.002,
+      "cachedP95Ms": 0.003,
+      "afterEditMs": 67.56,
+      "workerRoundTripMs": 686.56,
+      "mainThreadTimerTicks": 106,
+      "rssMiB": 219.1
+    },
+    {
+      "scenario": "dense",
+      "files": 1000,
+      "bytes": 9753662,
+      "coldMs": 4604.13,
+      "cachedP50Ms": 0.002,
+      "cachedP95Ms": 0.002,
+      "afterEditMs": 1440.85,
+      "workerRoundTripMs": 3840.83,
+      "mainThreadTimerTicks": 618,
+      "rssMiB": 1249.6
+    }
+  ]
+}

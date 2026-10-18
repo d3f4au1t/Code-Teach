@@ -1,0 +1,99 @@
+{
+  "name": "code-teach",
+  "displayName": "Code Teach",
+  "description": "Learn a JavaScript or TypeScript project through source-backed explanations and code connections.",
+  "version": "0.1.0",
+  "publisher": "code-teach-local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "main": "./dist/src/extension.js",
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeTeach.explain",
+        "title": "Code Teach: Explain Selection"
+      },
+      {
+        "command": "codeTeach.project",
+        "title": "Code Teach: Explore Project"
+      },
+      {
+        "command": "codeTeach.refresh",
+        "title": "Code Teach: Refresh Index"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codeTeach.explain",
+          "when": "resourceLangId =~ /^(javascript|javascriptreact|typescript|typescriptreact)$/",
+          "group": "navigation@10"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Code Teach",
+      "properties": {
+        "codeTeach.maxFiles": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Maximum indexed source files per workspace folder. Refresh the index after changing."
+        },
+        "codeTeach.maxFileKB": {
+          "type": "number",
+          "default": 256,
+          "minimum": 1,
+          "maximum": 1024,
+          "description": "Maximum source file size in KiB. Refresh the index after changing."
+        },
+        "codeTeach.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional gitignore-style patterns to exclude from local analysis."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test dist/test/*.test.js",
+    "benchmark": "npm run compile && node dist/scripts/benchmark.js",
+    "test:integration": "npm run compile && node dist/test/runIntegration.js",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links"
+  },
+  "dependencies": {
+    "ignore": "^7.0.5",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0"
+  }
+}

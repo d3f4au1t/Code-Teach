@@ -1,0 +1,46 @@
+import * as vscode from 'vscode';
+import * as path from 'node:path';
+import assert from 'node:assert/strict';
+import {Explanation} from '../src/model';
+
+export async function run() {
+  const extension = vscode.extensions.getExtension('code-teach-local.code-teach');
+  assert.ok(extension, 'extension installed in development host');
+  const api = await extension.activate() as {getCurrentExplanation():Explanation | undefined;back():Promise<void>;getHistory():unknown[]};
+  const root = vscode.workspace.workspaceFolders![0].uri.fsPath;
+  const file = path.join(root, 'src/checkout.ts');
+  const document = await vscode.workspace.openTextDocument(file);
+  const editor = await vscode.window.showTextDocument(document);
+  const offset = document.getText().indexOf('function checkout') + 'function '.length;
+  const position = document.positionAt(offset);
+  editor.selection = new vscode.Selection(position, position);
+  const hovers = await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', document.uri, position);
+  assert.ok(hovers?.some(hover => hover.contents.some(content => (typeof content === 'string' ? content : content.value).includes('Explain more'))), 'teaching hover has persistent panel action');
+  await vscode.commands.executeCommand('codeTeach.explain', {file,offset});
+  let explanation = api.getCurrentExplanation();
+  assert.equal(explanation?.name, 'checkout');
+  const caller = explanation.upstream.find(edge => edge.kind === 'caller' && edge.target?.file.endsWith('route.ts'));
+  assert.ok(caller?.target, 'cross-file upstream caller');
+  await vscode.commands.executeCommand('codeTeach.explain', {file:caller.target.file,offset:caller.target.start});
+  assert.equal(api.getCurrentExplanation()?.name, 'checkoutRoute');
+  await api.back();
+  assert.equal(api.getCurrentExplanation()?.name, 'checkout');
+  explanation = api.getCurrentExplanation();
+  const dependency = explanation?.downstream.find(edge => edge.kind === 'callee' && edge.target?.file.includes('pricing'));
+  assert.ok(dependency?.target, 'cross-package downstream dependency');
+  await vscode.commands.executeCommand('codeTeach.explain', {file:dependency.target.file,offset:dependency.target.start});
+  assert.equal(api.getCurrentExplanation()?.name, 'calculateTotal');
+  await api.back();
+  assert.equal(api.getCurrentExplanation()?.name, 'checkout');
+  const route = await vscode.workspace.openTextDocument(path.join(root,'src/route.ts'));
+  const original = route.getText();
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(route.uri, new vscode.Range(route.positionAt(0), route.positionAt(original.length)), 'export function checkoutRoute() { return null; }');
+  await vscode.workspace.applyEdit(edit);
+  await vscode.commands.executeCommand('codeTeach.explain', {file,offset});
+  assert.ok(!api.getCurrentExplanation()?.upstream.some(edge => edge.kind === 'caller' && edge.target?.file.endsWith('route.ts')), 'unsaved edits invalidate upstream results');
+  const restore = new vscode.WorkspaceEdit();
+  restore.replace(route.uri,new vscode.Range(route.positionAt(0),route.positionAt(route.getText().length)),original);
+  await vscode.workspace.applyEdit(restore);
+  console.log('Code Teach extension-host demo passed: hover → project role → caller → package dependency → return → unsaved edit refresh.');
+}

@@ -1,0 +1,6 @@
+{
+  "name": "checkout-demo",
+  "private": true,
+  "description": "A tiny checkout feature for learning cross-file navigation.",
+  "scripts": { "test": "echo 'Use the extension integration tests from the parent folder.'" }
+}
