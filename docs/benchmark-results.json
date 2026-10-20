@@ -8,37 +8,37 @@
       "scenario": "small",
       "files": 100,
       "bytes": 10315,
-      "coldMs": 87.78,
-      "cachedP50Ms": 0.002,
-      "cachedP95Ms": 0.007,
-      "afterEditMs": 13.32,
-      "workerRoundTripMs": 276.29,
-      "mainThreadTimerTicks": 45,
-      "rssMiB": 160.9
+      "coldMs": 34.46,
+      "cachedP50Ms": 0.001,
+      "cachedP95Ms": 0.005,
+      "afterEditMs": 5.81,
+      "workerRoundTripMs": 122.8,
+      "mainThreadTimerTicks": 20,
+      "rssMiB": 161
     },
     {
       "scenario": "small",
       "files": 1000,
       "bytes": 107512,
-      "coldMs": 217.11,
-      "cachedP50Ms": 0.002,
-      "cachedP95Ms": 0.003,
-      "afterEditMs": 67.56,
-      "workerRoundTripMs": 686.56,
-      "mainThreadTimerTicks": 106,
-      "rssMiB": 219.1
+      "coldMs": 89.46,
+      "cachedP50Ms": 0.001,
+      "cachedP95Ms": 0.002,
+      "afterEditMs": 26.75,
+      "workerRoundTripMs": 190.98,
+      "mainThreadTimerTicks": 31,
+      "rssMiB": 219
     },
     {
       "scenario": "dense",
       "files": 1000,
       "bytes": 9753662,
-      "coldMs": 4604.13,
-      "cachedP50Ms": 0.002,
-      "cachedP95Ms": 0.002,
-      "afterEditMs": 1440.85,
-      "workerRoundTripMs": 3840.83,
-      "mainThreadTimerTicks": 618,
-      "rssMiB": 1249.6
+      "coldMs": 2519.03,
+      "cachedP50Ms": 0.001,
+      "cachedP95Ms": 0.003,
+      "afterEditMs": 1285.51,
+      "workerRoundTripMs": 3111.51,
+      "mainThreadTimerTicks": 503,
+      "rssMiB": 1359
     }
   ]
 }

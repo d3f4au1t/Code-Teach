@@ -23,7 +23,7 @@ For ongoing development, `npm run watch` recompiles changes. Restart the Extensi
 
 ```sh
 npm run package
-code --install-extension ./code-teach-0.1.0.vsix
+code --install-extension ./code-teach-0.2.0.vsix
 ```
 
 Alternatively, use **Extensions → … → Install from VSIX…** in VS Code and choose the generated file. Open your project folder after installation. The package includes the local analysis dependencies; the installed extension needs no separate `npm install`.
@@ -31,10 +31,12 @@ Alternatively, use **Extensions → … → Install from VSIX…** in VS Code an
 ## Explore a project
 
 1. **Hover** a function, variable, class, parameter, or other identifiable symbol. The compact explanation includes purpose, project role, inputs, output, and relevant effects when found.
-2. Choose **Explain more** for a persistent panel with the signature, source evidence, uncertainty notes, and connections. **Open source** selects the supporting code in the editor.
+2. Choose **Explain more** for a persistent panel with a clickable connection map, numbered source steps, and real caller examples that map arguments to parameters. Each step explains a small piece of code; **Show line in source** selects it. Inputs, outputs, side effects, the full source preview, and evidence are available in expandable sections. **Open source** selects the supporting code in the editor.
 3. Select **Upstream** to find what calls the code or supplies values. Select **Downstream** to find what it calls or where values are used. Each listed path is independently selectable.
 4. Use **Back** or a breadcrumb to return. Navigation selects source without editing it. Revisiting an existing location collapses the current path to that step; recursion and import cycles never expand automatically.
 5. Change scale with **Expression**, **Function**, **Class**, **File**, **Module**, or **Project**. Project/module overviews list indexed files and import connections. **Explore inside** drills into files, symbols, or class members.
+
+The connection map shows up to four callers/callees (or imports when there are no calls); the full Upstream/Downstream lists include data sources, consumers, and references. The chosen direction is remembered, and the current source step survives refreshes that keep the same symbol location. Branches, loops, deferred functions, and standard-array patterns are explained without running the project. Example arguments are written source expressions, not observed runtime values.
 
 A module means the nearest indexed named package, falling back to the selected file's directory. Function/class scales use the enclosing declaration where one exists; unavailable scales are not invented. Expression analysis uses the expression at the caret or selection endpoint, not an arbitrary multi-statement slice.
 
@@ -96,6 +98,7 @@ Indexing exposes progress and cancellation. Queued analysis can be canceled; can
 | Directory entries examined | 50,000 per collection |
 | Displayed relationships | Up to 60 per direction |
 | Displayed child entries | Up to 60 |
+| Teaching preview | 12 steps, 3 call examples, 12 parameters per example |
 | Cached explanations | 128 per worker |
 | Breadcrumb history | 50 visits |
 
@@ -123,3 +126,5 @@ npm run package
 `npm test` runs focused analysis, cross-file navigation, edit refresh, history, exclusion, and panel security tests. Integration tests launch a separate desktop VS Code instance and may download its test runtime on first use. The benchmark prints measured query, cache, edit, and worker startup costs; it is not a performance guarantee for arbitrary projects.
 
 Follow the [checkout demonstration](docs/demo.md) for the complete hover → upstream caller → downstream package → return flow.
+
+See the [feature audit and resolved issues](docs/audit.md) for the current verification results and remaining gaps.

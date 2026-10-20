@@ -2,6 +2,7 @@ export type Scope = 'expression' | 'function' | 'class' | 'file' | 'module' | 'p
 export type RelationKind = 'caller' | 'callee' | 'data source' | 'consumer' | 'import' | 'reference';
 export interface SourceLink {
   scope?: Scope;
+  line?: number;
   file: string;
   start: number;
   end: number;
@@ -14,7 +15,23 @@ export interface Relationship {
   target?: SourceLink;
   evidence: SourceLink;
 }
+export interface TeachingStep {
+  title: string;
+  detail: string;
+  code: string;
+  kind: 'compute' | 'branch' | 'loop' | 'return' | 'effect' | 'declaration';
+  source: SourceLink;
+}
+export interface CallExample {
+  code: string;
+  source: SourceLink;
+  bindings: { parameter: string; argument: string }[];
+  note: string;
+}
 export interface Explanation {
+  sourceCode: string;
+  steps: TeachingStep[];
+  examples: CallExample[];
   id: string;
   name: string;
   kind: string;

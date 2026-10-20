@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test, TestContext } from 'node:test';
 import ts from 'typescript';
-import { collectProject, expandEditorExcludes, isAllowedDirectory, isAllowedFile, readBounded } from '../src/workspace';
+import { collectProject, indexLimits, requiresReindex, expandEditorExcludes, isAllowedDirectory, isAllowedFile, readBounded } from '../src/workspace';
 
 async function fixture(t: TestContext, files: Record<string, string>): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'code-teach-index-'));
@@ -197,4 +197,12 @@ test('configuration parsing resolves aliases and local inheritance using indexed
   const external = await collectProject(root);
   assert.notEqual(external.compilerOptions?.strict, false);
   assert.match(external.notes!.join('\n'), /Cannot read file|not found/);
+});
+
+
+test('inherited compiler configurations trigger reindexing and edits share initial bounds', () => {
+  for(const name of ['tsconfig.json','tsconfig.base.json','jsconfig.dev-local.json','package.json','.gitignore','.ignore']) assert.equal(requiresReindex('/project/'+name),true,name);
+  for(const name of ['main.ts','README.md','unrelated.json']) assert.equal(requiresReindex('/project/'+name),false,name);
+  assert.deepEqual(indexLimits({maxFiles:Infinity,maxFileKB:NaN}),{maxFiles:1000,maxFileKB:256});
+  assert.deepEqual(indexLimits({maxFiles:10000,maxFileKB:-1}),{maxFiles:5000,maxFileKB:1});
 });

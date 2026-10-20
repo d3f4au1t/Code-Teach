@@ -133,6 +133,7 @@ test('expression, class, file, module and project scopes expose concrete childre
   assert.equal(module.children.length, 2);
   const project = analyzer.explain({ file: file('src/a.ts'), offset: 0, scope: 'project' })!;
   assert.equal(project.children.length, 2);
+  assert.equal(project.sourceCode, '', 'a project overview must not display one file as project source');
   assert.ok(project.evidence.some(item => item.file === file('README.md')));
 });
 

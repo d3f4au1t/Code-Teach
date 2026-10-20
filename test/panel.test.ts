@@ -6,6 +6,7 @@ import { renderPanel } from '../src/panel';
 
 const source: SourceLink = { file: '/project/src/price.ts', start: 10, end: 40, label: 'price' };
 const explanation: Explanation = {
+  sourceCode: 'return quantity * 2;', steps: [{title:'Give back the result',detail:'Multiply quantity by 2.',kind:'return',code:'return quantity * 2;',source}], examples: [{code:'price(3)',source,bindings:[{parameter:'quantity',argument:'3'}],note:'Not executed.'}],
   id: 'price', name: 'price', kind: 'function', scope: 'function', source,
   summary: 'Calculates a price.', role: 'Used by checkout to price the basket.', signature: '(quantity: number): number',
   inputs: ['quantity: number'], outputs: ['number'], effects: [], notes: ['Runtime values cannot be determined.'],
@@ -36,6 +37,7 @@ test('project text is escaped in every output position and never injected into s
   const maliciousSource = { ...source, file: attack, label: attack };
   const html = renderPanel({
     ...explanation, name: attack, kind: attack, summary: attack, role: attack, signature: attack,
+    sourceCode: attack, steps:[{title:attack,detail:attack,kind:'compute',code:attack,source:maliciousSource}], examples:[{code:attack,source:maliciousSource,bindings:[{parameter:attack,argument:attack}],note:attack}],
     source: maliciousSource, inputs: [attack], outputs: [attack], effects: [attack], notes: [attack],
     evidence: [maliciousSource], children: [maliciousSource], upstream: [{ kind: 'reference', certainty: 'inferred', detail: attack, target: maliciousSource, evidence: maliciousSource }],
   }, [{ name: attack, query: { file: attack, offset: 0 } }], attack);
@@ -71,7 +73,7 @@ class Button {
 }
 
 test('panel sends only indexed navigation messages and supports accessible keyboard tabs', () => {
-  const html = renderPanel(explanation, history);
+  const html = renderPanel(explanation, history, undefined, 7);
   const script = html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)![1];
   const messages: unknown[] = [];
   const listeners: Record<string, (event: { target: Button; key?: string; preventDefault?: () => void }) => void> = {};
@@ -80,14 +82,24 @@ test('panel sends only indexed navigation messages and supports accessible keybo
   const downstream = new Button({ tab: 'downstream' });
   downstream.setAttribute('aria-controls', 'downstream-panel');
   const panels: Record<string, { hidden: boolean }> = { 'upstream-panel': { hidden: false }, 'downstream-panel': { hidden: true } };
+  let saved: unknown;
+  const cards = [ {dataset:{stepCard:'0'},hidden:false}, {dataset:{stepCard:'1'},hidden:true} ];
+  const steps = [new Button({step:'0'}),new Button({step:'1'})];
   runInNewContext(script, {
-    acquireVsCodeApi: () => ({ postMessage: (message: unknown) => messages.push(JSON.parse(JSON.stringify(message))) }),
+    acquireVsCodeApi: () => ({ getState:() => ({symbol:'price',step:1,direction:'downstream'}), setState:(state:unknown) => { saved = JSON.parse(JSON.stringify(state)); }, postMessage: (message: unknown) => messages.push(JSON.parse(JSON.stringify(message))) }),
     document: {
+      body:{dataset:{revision:'7',symbol:'price'}},
       addEventListener: (name: string, handler: typeof listeners[string]) => { listeners[name] = handler; },
-      querySelectorAll: () => [upstream, downstream],
+      querySelectorAll: (selector:string) => selector === '[data-tab]' ? [upstream,downstream] : selector === '[data-step-card]' ? cards : steps,
       getElementById: (id: string) => panels[id],
     },
   });
+  assert.equal(cards[1].hidden, false);
+  assert.equal(panels['downstream-panel'].hidden, false);
+  listeners.click({target:steps[0]});
+  assert.equal(cards[0].hidden, false);
+  assert.equal(cards[1].hidden, true);
+  assert.deepEqual(saved,{symbol:'price',direction:'downstream',step:0});
   const actions: Array<Record<string, string>> = [
     { action: 'back' }, { action: 'breadcrumb', index: '0' }, { action: 'scope', scope: 'project' },
     { action: 'navigate', index: '0', direction: 'upstream' }, { action: 'source', index: '-1' },
@@ -98,7 +110,7 @@ test('panel sends only indexed navigation messages and supports accessible keybo
     { action: 'back' }, { action: 'breadcrumb', index: 0 }, { action: 'scope', scope: 'project' },
     { action: 'navigate', index: 0, direction: 'upstream' }, { action: 'source', index: -1 },
     { action: 'child', index: 0 }, { action: 'refresh' },
-  ]);
+  ].map(message => ({...message,revision:7})));
   const disabled = new Button({ action: 'navigate' }); disabled.disabled = true;
   listeners.click({ target: disabled });
   listeners.click({ target: downstream });

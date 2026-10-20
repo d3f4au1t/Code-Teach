@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { AnalysisClient } from './client';
 import { AnalysisQuery, Explanation, Scope, SourceLink } from './model';
-import { collectProject, isAllowedFile, readBounded, expandEditorExcludes, isAllowedDirectory } from './workspace';
+import { collectProject, isAllowedFile, readBounded, expandEditorExcludes, isAllowedDirectory, requiresReindex, indexLimits } from './workspace';
 import { renderPanel } from './panel';
 import { ExplorationHistory } from './history';
 
@@ -35,6 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   let navigation = 0;
   let disposed = false;
   let generation = 0;
+  let revision = 0;
 
   const report = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -63,8 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
           const settings = vscode.workspace.getConfiguration(key, folder.uri).get<Record<string, boolean | object>>('exclude', {});
           for (const [pattern, value] of Object.entries(settings)) if (value) exclude.push(...expandEditorExcludes([pattern]));
         }
-        const maxFiles = config.get<number>('maxFiles', 1000);
-        const maxFileKB = config.get<number>('maxFileKB', 256);
+        const {maxFiles, maxFileKB} = indexLimits({maxFiles:config.get<number>('maxFiles'), maxFileKB:config.get<number>('maxFileKB')});
         status.text = '$(sync~spin) Code Teach: indexing';
         try {
           const project = await collectProject(root, { maxFiles, maxFileKB, exclude,
@@ -105,12 +105,13 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   function clearPanel() {
+    ++revision;
     current = undefined;
     if (panel) panel.webview.html = '<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src &apos;none&apos;"></head><body><h1>Code Teach</h1><p>This selection is no longer available in the current index. Select another symbol and choose Code Teach: Explain Selection.</p></body></html>';
   }
 
   function render(notice?: string) {
-    if (panel && current) panel.webview.html = renderPanel(current, history.entries, notice);
+    if (panel && current) panel.webview.html = renderPanel(current, history.entries, notice, ++revision);
   }
 
   async function openSource(link: SourceLink) {
@@ -130,29 +131,35 @@ export function activate(context: vscode.ExtensionContext) {
     panel = vscode.window.createWebviewPanel('codeTeach.explorer', 'Code Teach', vscode.ViewColumn.Beside,
       { enableScripts: true, localResourceRoots: [] });
     panel.onDidDispose(() => { panel = undefined; ++navigation; });
-    panel.webview.onDidReceiveMessage(async (message: unknown) => {
-      if (!current || !message || typeof message !== 'object') return;
-      const m = message as Record<string, unknown>;
-      try {
-        if (m.action === 'back') {
-          await goBack();
-        } else if (m.action === 'breadcrumb' && typeof m.index === 'number') {
-          const visit = Number.isInteger(m.index) && m.index >= 0 ? history.entries[m.index] : undefined;
-          if (visit) await show(visit.query, false, true, false, m.index);
-        } else if (m.action === 'scope' && scopes.includes(m.scope as Scope)) {
-          await show({ file: current.source.file, offset: current.source.start, scope: m.scope as Scope });
-        } else if (m.action === 'navigate' && (m.direction === 'upstream' || m.direction === 'downstream') && Number.isInteger(m.index)) {
-          const target = current[m.direction][m.index as number]?.target;
-          if (target) await show({file:target.file,offset:target.start,scope:target.scope}, true, true);
-        } else if (m.action === 'child' && Number.isInteger(m.index)) {
-          const target = current.children[m.index as number];
-          if (target) await show({file:target.file,offset:target.start,scope:target.scope}, true, true);
-        } else if (m.action === 'source' && Number.isInteger(m.index)) {
-          const source = m.index === -1 ? current.source : current.evidence[m.index as number];
-          if (source) await openSource(source);
-        } else if (m.action === 'refresh') await refresh();
-      } catch (error) { report(error); }
-    }, undefined, context.subscriptions);
+    panel.webview.onDidReceiveMessage(handlePanelMessage, undefined, context.subscriptions);
+  }
+
+  async function handlePanelMessage(message: unknown) {
+    if (!current || !message || typeof message !== 'object') return;
+    const m = message as Record<string, unknown>;
+    if (m.revision !== revision) return;
+    try {
+      if (m.action === 'back') {
+        await goBack();
+      } else if (m.action === 'breadcrumb' && typeof m.index === 'number') {
+        const visit = Number.isInteger(m.index) && m.index >= 0 ? history.entries[m.index] : undefined;
+        if (visit) await show(visit.query, false, true, false, m.index);
+      } else if (m.action === 'scope' && scopes.includes(m.scope as Scope)) {
+        await show({ file: current.source.file, offset: current.source.start, scope: m.scope as Scope });
+      } else if (m.action === 'navigate' && (m.direction === 'upstream' || m.direction === 'downstream') && Number.isInteger(m.index)) {
+        const target = current[m.direction][m.index as number]?.target;
+        if (target) await show({file:target.file,offset:target.start,scope:target.scope}, true, true);
+      } else if (m.action === 'child' && Number.isInteger(m.index)) {
+        const target = current.children[m.index as number];
+        if (target) await show({file:target.file,offset:target.start,scope:target.scope}, true, true);
+      } else if (m.action === 'source' && Number.isInteger(m.index)) {
+        const source = m.index === -1 ? current.source : current.evidence[m.index as number];
+        if (source) await openSource(source);
+      } else if ((m.action === 'step' || m.action === 'example') && Number.isInteger(m.index)) {
+        const source = (m.action === 'step' ? current.steps : current.examples)[m.index as number]?.source;
+        if (source) await openSource(source);
+      } else if (m.action === 'refresh') await refresh();
+    } catch (error) { report(error); }
   }
 
   async function goBack() {
@@ -236,6 +243,8 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   async function refresh() {
+    if (indexTimer) { clearTimeout(indexTimer); indexTimer = undefined; }
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = undefined; }
     ++generation;
     ++navigation;
     for (const session of sessions.values()) void session.then(value => value.client.dispose()).catch(() => {});
@@ -289,12 +298,14 @@ export function activate(context: vscode.ExtensionContext) {
           if (!explanation || token.isCancellationRequested) return;
           const markdown = new vscode.MarkdownString();
           markdown.appendMarkdown('**Code Teach** · Local static analysis\n\n');
-          markdown.appendText(explanation.summary.slice(0, 300));
+          markdown.appendText(explanation.summary.slice(0, 220));
           markdown.appendMarkdown('\n\n');
-          markdown.appendText(explanation.role.slice(0, 260));
-          if (explanation.inputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Inputs: ${explanation.inputs.slice(0, 2).join('; ')}`); }
-          if (explanation.outputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Output: ${explanation.outputs[0]}`); }
-          if (explanation.effects.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Effect: ${explanation.effects[0]}`); }
+          markdown.appendText(explanation.role.slice(0, 220));
+          if (explanation.steps.length) markdown.appendCodeblock(explanation.steps.slice(0, 2).map(step => step.code).join('\n').slice(0, 180), document.languageId);
+          if (explanation.inputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Inputs: ${explanation.inputs.slice(0, 2).join('; ').slice(0, 180)}`); }
+          if (explanation.outputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Output: ${explanation.outputs[0].slice(0, 120)}`); }
+          const effect = explanation.effects.find(effect => !effect.startsWith('No explicit'));
+          if (effect) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Effect: ${effect.slice(0, 140)}`); }
           const command = `command:codeTeach.explain?${encodeURIComponent(JSON.stringify([query]))}`;
           markdown.appendMarkdown(`\n\n[Explain more →](${command})`);
           markdown.isTrusted = { enabledCommands: ['codeTeach.explain'] };
@@ -324,7 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
   const watcher = vscode.workspace.createFileSystemWatcher('**/*');
   const onDiskChange = (uri: vscode.Uri) => {
-    if (['.gitignore', '.ignore', 'tsconfig.json', 'jsconfig.json', 'package.json'].includes(path.basename(uri.fsPath))) {
+    if (requiresReindex(uri.fsPath)) {
       const folder = vscode.workspace.getWorkspaceFolder(uri);
       const pending = folder && sessions.get(folder.uri.fsPath);
       if (pending) void pending.then(async session => {
@@ -338,5 +349,5 @@ export function activate(context: vscode.ExtensionContext) {
     } else updateFile(uri);
   };
   context.subscriptions.push(watcher, watcher.onDidCreate(onDiskChange), watcher.onDidChange(onDiskChange), watcher.onDidDelete(onDiskChange));
-  return { refresh, back: goBack, getCurrentExplanation: () => current, getHistory: () => history.entries };
+  return { refresh, back: goBack, handlePanelMessage, getRevision: () => revision, getCurrentExplanation: () => current, getHistory: () => history.entries };
 }

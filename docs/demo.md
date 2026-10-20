@@ -25,7 +25,9 @@ From the extension folder, run `npm ci` and `npm run compile`. Open that folder 
 
 Hover the `checkout` declaration. Code Teach's hover describes its documented purpose: turn a cart into a saved order. Its source-backed project role identifies the containing file, upstream callers, and downstream work.
 
-Choose **Explain more**. The persistent panel shows inputs (`prices`, `customerId`), return information, source links, and analysis limits. Documentation is author intent; the linked definitions and call sites establish the written connections. A call to `saveOrder` does not prove all of its effects at the `checkout` level—follow that dependency to investigate it.
+Choose **Explain more**. The persistent panel shows a clickable caller → checkout → dependency map. In **Read it step by step**, choose **1** to see `const total = calculateTotal(prices);`, then **2** to see `return saveOrder(customerId, total);`. **Show line in source** selects that exact statement.
+
+Under **See a real call**, the test supplies `[12, 8]` to `prices` and `'customer-1'` to `customerId`. This is actual call-site source, not code executed by the extension. Inputs, outputs, and effects are in an expandable section. Documentation is author intent; the linked definitions and call sites establish the written connections. A call to `saveOrder` does not prove all of its effects at the `checkout` level—follow that dependency to investigate it.
 
 ## 2. Visit an upstream caller
 
@@ -37,11 +39,11 @@ The panel now explains `checkoutRoute`, and the editor selects its definition in
 
 Choose **Back** to return to the `checkout` explanation and its source.
 
-Choose **Downstream**, then the **callee · verified** path named **calculateTotal**. The editor opens `packages/pricing/index.ts`, following the `@demo/pricing` alias across the package boundary. The panel describes the documented total calculation and the explicit `number` return type.
+Choose **Downstream**, then the **callee · verified** path named **calculateTotal**. The editor opens `packages/pricing/index.ts`, following the `@demo/pricing` alias across the package boundary. The source step explains the `reduce` pattern: start with `0`, combine each price into the accumulated total, then return it. This explanation explicitly assumes the standard array method. For the test input, the arithmetic would be `0 + 12 + 8 = 20`; this is a worked illustration, not an observed execution. The explicit `number` return type is available under inputs/outputs.
 
 `prices.reduce(...)` may have no navigable implementation because standard-library declarations are outside this version's index. That unresolved edge is an analysis limit; it is not proof that the call has no behavior.
 
-Choose **Back** again. You are back at `checkout`, with its original context and available paths. You can now follow **saveOrder** or select a different upstream caller.
+Choose **Back** again. You are back at `checkout`, with its original context and available paths. Follow **saveOrder** to see the new order object, the array mutation, and the returned order as separate source steps. The mutation explanation states its standard-array assumption. Choose Back again to return, or select a different upstream caller.
 
 ## 4. Verify changes after edits
 
@@ -59,3 +61,9 @@ The extension only reads and selects source; these edits are made by you. For an
 Run **Code Teach: Explore Project**, then use **Explore inside** to select `src/checkout.ts` and its `checkout` symbol. **Module** shows the containing indexed package or directory. **File**, **Class**, **Function**, and **Expression** narrow the view where the selected source supports those scales.
 
 Connections expand only when selected. Back and breadcrumbs retain the path, and revisiting a location collapses a cycle rather than expanding indefinitely. See the [README](../README.md) for exclusions and unsupported behavior and [performance measurements](performance.md) for measured limits.
+
+## Verified preview
+
+![Connection map and source steps in the browser preview](panel-demo.png)
+
+This image shows the real panel renderer in a local browser preview. Source selection and automatic refresh were verified separately in the real VS Code extension host. Native clicking was blocked by the locked Mac during this audit.

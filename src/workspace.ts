@@ -20,6 +20,16 @@ const MAX_CONTEXT_FILES = 100;
 const MAX_ENTRIES = 50_000;
 interface Rules { directory: string; matcher: Ignore; }
 
+export function requiresReindex(file: string): boolean {
+  return /^(?:package|[jt]sconfig(?:[.-][^.]+)*)\.json$/i.test(path.basename(file)) || ['.gitignore', '.ignore'].includes(path.basename(file));
+}
+
+export function indexLimits(options: IndexOptions): {maxFiles: number; maxFileKB: number} {
+  const bound = (value: number | undefined, fallback: number, maximum: number): number =>
+    Math.min(maximum, Math.max(1, Math.floor(value !== undefined && Number.isFinite(value) ? value : fallback)));
+  return {maxFiles:bound(options.maxFiles,1000,5000),maxFileKB:bound(options.maxFileKB,256,1024)};
+}
+
 /** Expand VS Code brace alternatives before passing editor exclusions to gitignore matching. */
 export function expandEditorExcludes(patterns: string[]): string[] {
   const pending = [...patterns].reverse();
@@ -193,10 +203,8 @@ function compilerOptions(root: string, files: IndexedFile[], notes: string[]): R
 
 export async function collectProject(root: string, options: IndexOptions = {}): Promise<ProjectInput> {
   root = path.resolve(root);
-  const bound = (value: number | undefined, fallback: number, maximum: number): number =>
-    Math.min(maximum, Math.max(1, Math.floor(value !== undefined && Number.isFinite(value) ? value : fallback)));
-  const maxFiles = bound(options.maxFiles, 1000, 5000);
-  const maxBytes = bound(options.maxFileKB, 256, 1024) * 1024;
+  const {maxFiles, maxFileKB} = indexLimits(options);
+  const maxBytes = maxFileKB * 1024;
   const extra = ignore().add(options.exclude ?? []);
   const files: IndexedFile[] = [];
   const notes = ['Local analysis excludes repository ignore rules, secrets, generated/vendor output, symlinks, and unsupported file types.'];

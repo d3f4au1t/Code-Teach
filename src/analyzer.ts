@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import * as ts from 'typescript';
+import { teachingSteps, callExamples, arrayMethodHint } from './teaching';
 import { AnalysisQuery, Explanation, ProjectInput, Relationship, Scope, SourceLink } from './model';
 
 const SOURCE = /\.[cm]?[jt]sx?$/i;
@@ -227,7 +228,8 @@ export class Analyzer {
   }
 
   private symbol(node: ts.Node): ts.Symbol | undefined {
-    let symbol = this.checker.getSymbolAtLocation(node);
+    let symbol = ts.isIdentifier(node) && ts.isShorthandPropertyAssignment(node.parent)
+      ? this.checker.getShorthandAssignmentValueSymbol(node.parent) : this.checker.getSymbolAtLocation(node);
     if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = this.checker.getAliasedSymbol(symbol);
     return symbol;
   }
@@ -279,13 +281,15 @@ export class Analyzer {
 
   private link(node: ts.Node, label = this.label(node), nameOnly = false): SourceLink {
     const target = nameOnly ? nameOf(node) ?? node : node;
-    return { file: node.getSourceFile().fileName, start: target.getStart(), end: target.end, label, ...(ts.isSourceFile(node) ? { scope: 'file' as const } : {}) };
+    return { file: node.getSourceFile().fileName, start: target.getStart(), end: target.end, line: target.getSourceFile().getLineAndCharacterOfPosition(target.getStart()).line + 1, label, ...(ts.isSourceFile(node) ? { scope: 'file' as const } : {}) };
   }
 
   private inNode(node: ts.Node, focus: ts.Node): boolean {
     if (node.getSourceFile() !== focus.getSourceFile() || node.pos < focus.pos || node.end > focus.end) return false;
     const fn = functionOf(focus);
-    return !fn || enclosing(node.parent, callable) === fn;
+    if (fn) return enclosing(node.parent, callable) === fn;
+    if (ts.isSourceFile(focus) || ts.isClassLike(focus)) return true;
+    return enclosing(node.parent, callable) === enclosing(focus.parent, callable);
   }
 
   private type(node: ts.Node): string {
@@ -318,7 +322,7 @@ export class Analyzer {
     return {
       id: `${node.getSourceFile().fileName}:${node.getStart()}:${scope}`, name: this.label(node),
       kind: ts.SyntaxKind[node.kind], scope, source: this.link(node, this.label(node), true), summary: '', role: '',
-      inputs: [], outputs: [], effects: [], notes: [...this.projectNotes,
+      sourceCode: node.getText().length > 3600 ? `${node.getText().slice(0, 3600)}\n… (preview shortened; open source for the rest)` : node.getText(), steps: [], examples: [], inputs: [], outputs: [], effects: [], notes: [...this.projectNotes,
         'Static analysis shows written relationships. Runtime dispatch, callback scheduling, reflection and side effects of unresolved calls cannot be determined.',
         'Types use indexed source only; standard-library and unindexed dependency declarations are unavailable.'],
       evidence: [this.link(node, 'Definition', true)], upstream: [], downstream: [], children: [],
@@ -373,8 +377,21 @@ export class Analyzer {
       result.summary ||= ts.isExpression(node) ? `Evaluates ${this.describe(node)}.` : `${result.name} is a ${ts.SyntaxKind[node.kind]} declaration.`;
       result.outputs = [`Static type: ${this.type(node)}.`];
     }
+    const walkthrough = teachingSteps(fn?.body ?? node, child => this.link(child));
+    result.steps = ts.isClassLike(node) ? [] : walkthrough.steps;
+    if (walkthrough.truncated) result.notes.push('Showing the first 12 source steps; open source for the rest.');
+    if (fn) result.examples = callExamples(fn.parameters, (symbol ? this.callers.get(symbol) ?? [] : []).map(site => site.call), child => this.link(child));
+    if (fn && (symbol ? this.callers.get(symbol)?.length ?? 0 : 0) > 3) result.notes.push('Showing the first 3 call examples. More callers are available in Upstream.');
     this.relationships(node, symbol, result);
     for (const statement of statements) {
+      if (ts.isCallExpression(statement)) {
+        const hint = arrayMethodHint(statement, this.checker);
+        if (hint) {
+          if (hint.mutates) result.effects.push(`Likely change: ${hint.detail}`);
+          const step = result.steps.find(step => statement.getStart() >= step.source.start && statement.end <= step.source.end);
+          if (step && !step.detail.includes(hint.detail)) step.detail = `${step.detail} ${hint.detail}`.slice(0, 1200);
+        }
+      }
       if (ts.isThrowStatement(statement)) result.effects.push(`May throw ${compact(statement.expression.getText(), 100)}.`);
       if (ts.isAwaitExpression(statement)) result.effects.push(`Waits asynchronously for ${compact(statement.expression.getText(), 100)}.`);
       const write = ts.isBinaryExpression(statement) && statement.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && statement.operatorToken.kind <= ts.SyntaxKind.LastAssignment ? statement.left :
@@ -393,8 +410,8 @@ export class Analyzer {
     const moduleSymbol = this.checker.getSymbolAtLocation(source);
     const exported = !!symbol && !!moduleSymbol && this.checker.getExportsOfModule(moduleSymbol).some(item => (item.flags & ts.SymbolFlags.Alias ? this.checker.getAliasedSymbol(item) : item) === symbol);
     result.role = `Defined in ${this.relative(source.fileName)}${exported ? ' and exported for other modules' : ''}.`;
-    if (upstream.length) result.role += ` Reached from ${[...new Set(upstream.map(item => item.target?.label).filter(Boolean))].slice(0, 3).join(', ')}.`;
-    if (downstream.length) result.role += ` Delegates work to ${[...new Set(downstream.map(item => item.target?.label ?? item.evidence.label))].slice(0, 3).join(', ')}.`;
+    if (upstream.length) result.role += ` Called in ${[...new Set(upstream.map(item => item.target?.label).filter(Boolean))].slice(0, 3).join(', ')}.`;
+    if (downstream.length) result.role += ` Contains calls to ${[...new Set(downstream.map(item => item.target?.label ?? item.evidence.label))].slice(0, 3).join(', ')}.`;
     const tests = symbol ? (this.references.get(symbol) ?? []).filter(ref => /(?:^|[/\\])(?:test|tests|__tests__)(?:[/\\])|[.](?:test|spec)[.]/i.test(ref.getSourceFile().fileName)) : [];
     if (tests.length) {
       result.role += ` Referenced by ${new Set(tests.map(ref => ref.getSourceFile().fileName)).size} indexed test file(s); this does not establish test coverage.`;
@@ -411,7 +428,11 @@ export class Analyzer {
     };
     for (const site of symbol ? this.callers.get(symbol) ?? [] : []) {
       add('upstream', 'caller', `${this.label(site.caller)} calls ${result.name} here. This is a static call site, not a guarantee that it executes.`, site.call, site.caller);
-      for (let parent = site.call.parent; parent && !callable(parent) && !ts.isSourceFile(parent); parent = parent.parent) {
+      for (let parent = site.call.parent; parent && !ts.isSourceFile(parent); parent = parent.parent) {
+        if (callable(parent)) {
+          if (ts.isArrowFunction(parent) && !ts.isBlock(parent.body)) add('downstream', 'consumer', `The result contributes to the value returned by ${this.label(site.caller)}.`, site.call, site.caller);
+          break;
+        }
         if (ts.isVariableDeclaration(parent) && parent.initializer) {
           add('downstream', 'consumer', `The result contributes to the initializer of ${this.label(parent)}.`, site.call, parent);
           break;
@@ -502,6 +523,7 @@ export class Analyzer {
     const directory = scope === 'project' ? this.root : packageDirectory ?? path.dirname(source.fileName);
     const files = this.program!.getSourceFiles().filter(file => file.fileName.startsWith(`${directory}${path.sep}`));
     const result = this.base(source, scope);
+    result.sourceCode = '';
     result.id = `${directory}:${scope}`;
     result.name = scope === 'project' ? path.basename(this.root) : this.relative(directory) || path.basename(this.root);
     result.kind = scope === 'project' ? 'Project' : 'Module';
