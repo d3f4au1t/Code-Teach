@@ -24,6 +24,10 @@ export async function run() {
   editor.selection = new vscode.Selection(position, position);
   const hovers = await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', document.uri, position);
   assert.ok(hovers?.some(hover => hover.contents.some(content => (typeof content === 'string' ? content : content.value).includes('Explain more'))), 'teaching hover has persistent panel action');
+  const teachingHover = hovers!.flatMap(hover => hover.contents).find(content => (typeof content === 'string' ? content : content.value).includes('Explain more'))!;
+  const hoverText = typeof teachingHover === 'string' ? teachingHover : teachingHover.value;
+  assert.doesNotMatch(hoverText, /&nbsp;|\u00a0/, 'hover prose must wrap naturally in narrow editors');
+  assert.match(hoverText, /…/, 'bounded prose clearly marks omitted text instead of cutting off a word');
   await vscode.commands.executeCommand('codeTeach.explain', {file,offset});
   const current = () => api.getCurrentExplanation()!;
   assert.equal(current().name, 'checkout');

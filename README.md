@@ -23,7 +23,7 @@ For ongoing development, `npm run watch` recompiles changes. Restart the Extensi
 
 ```sh
 npm run package
-code --install-extension ./code-teach-0.2.0.vsix
+code --install-extension ./code-teach-0.2.1.vsix
 ```
 
 Alternatively, use **Extensions → … → Install from VSIX…** in VS Code and choose the generated file. Open your project folder after installation. The package includes the local analysis dependencies; the installed extension needs no separate `npm install`.

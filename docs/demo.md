@@ -62,8 +62,16 @@ Run **Code Teach: Explore Project**, then use **Explore inside** to select `src/
 
 Connections expand only when selected. Back and breadcrumbs retain the path, and revisiting a location collapses a cycle rather than expanding indefinitely. See the [README](../README.md) for exclusions and unsupported behavior and [performance measurements](performance.md) for measured limits.
 
-## Verified preview
+## Verified native demo
+
+![Code Teach running in VS Code, with a connection map and source lesson](native-demo.png)
+
+The installed 0.2.1 extension was exercised in desktop VS Code: keyboard-triggered hover → Explain more → upstream checkoutRoute → Back → downstream calculateTotal in the pricing package → Back. Source-step navigation selected the corresponding statement in the editor. [The native hover](native-hover.png) now wraps prose naturally, and Explain more dismisses it before showing the panel. The demo reports no TypeScript problems under the installed TypeScript 6.0.3.
+
+Automatic unsaved-edit and configuration refresh are verified by the real extension-host integration test, which uses a temporary copy of the demo.
+
+## Browser layout preview
 
 ![Connection map and source steps in the browser preview](panel-demo.png)
 
-This image shows the real panel renderer in a local browser preview. Source selection and automatic refresh were verified separately in the real VS Code extension host. Native clicking was blocked by the locked Mac during this audit.
+This additional image shows the real panel renderer in a local browser preview. That review also verified a 380 px layout with no horizontal overflow.

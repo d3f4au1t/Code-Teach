@@ -2,7 +2,7 @@
   "name": "code-teach",
   "displayName": "Code Teach",
   "description": "Learn a JavaScript or TypeScript project through source-backed explanations and code connections.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "code-teach-local",
   "license": "MIT",
   "engines": {

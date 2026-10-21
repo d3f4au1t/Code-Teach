@@ -9,6 +9,18 @@ import { ExplorationHistory } from './history';
 const languages = ['javascript', 'javascriptreact', 'typescript', 'typescriptreact'];
 const sourcePattern = /\.(?:[cm]?[jt]sx?)$/i;
 const scopes: Scope[] = ['expression', 'function', 'class', 'file', 'module', 'project'];
+
+function hoverText(value: string, limit: number): string {
+  let text = value.replace(/\s+/g, ' ').trim();
+  if (text.length > limit) {
+    const end = text.lastIndexOf(' ', limit - 1);
+    text = text.slice(0, end > limit / 2 ? end : limit - 1).trimEnd() + '…';
+  }
+  // Keep VS Code's Markdown escaping, but let prose wrap at ordinary spaces.
+  // Encode source entities first so a literal "&nbsp;" remains literal text.
+  return new vscode.MarkdownString().appendText(text.replace(/&/g, '&amp;').replace(/</g, '&lt;')).value.replace(/&nbsp;/g, ' ');
+}
+
 interface Session {
   root: string;
   client: AnalysisClient;
@@ -267,6 +279,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         if (!query && editor && editor.document.uri.scheme === 'file') query = {file:editor.document.uri.fsPath,offset:editor.document.offsetAt(editor.selection.active),scope:editor.selection.isEmpty ? undefined : 'expression'};
         if (!query) throw new Error('Open a JavaScript/TypeScript file and select some code.');
+        await vscode.commands.executeCommand('editor.action.hideHover');
         await show(query);
       } catch (error) { report(error); }
     }),
@@ -298,14 +311,14 @@ export function activate(context: vscode.ExtensionContext) {
           if (!explanation || token.isCancellationRequested) return;
           const markdown = new vscode.MarkdownString();
           markdown.appendMarkdown('**Code Teach** · Local static analysis\n\n');
-          markdown.appendText(explanation.summary.slice(0, 220));
+          markdown.appendMarkdown(hoverText(explanation.summary, 220));
           markdown.appendMarkdown('\n\n');
-          markdown.appendText(explanation.role.slice(0, 220));
+          markdown.appendMarkdown(hoverText(explanation.role, 220));
           if (explanation.steps.length) markdown.appendCodeblock(explanation.steps.slice(0, 2).map(step => step.code).join('\n').slice(0, 180), document.languageId);
-          if (explanation.inputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Inputs: ${explanation.inputs.slice(0, 2).join('; ').slice(0, 180)}`); }
-          if (explanation.outputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Output: ${explanation.outputs[0].slice(0, 120)}`); }
+          if (explanation.inputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendMarkdown(hoverText(`Inputs: ${explanation.inputs.slice(0, 2).join('; ')}`, 180)); }
+          if (explanation.outputs.length) { markdown.appendMarkdown('\n\n'); markdown.appendMarkdown(hoverText(`Output: ${explanation.outputs[0]}`, 120)); }
           const effect = explanation.effects.find(effect => !effect.startsWith('No explicit'));
-          if (effect) { markdown.appendMarkdown('\n\n'); markdown.appendText(`Effect: ${effect.slice(0, 140)}`); }
+          if (effect) { markdown.appendMarkdown('\n\n'); markdown.appendMarkdown(hoverText(`Effect: ${effect}`, 140)); }
           const command = `command:codeTeach.explain?${encodeURIComponent(JSON.stringify([query]))}`;
           markdown.appendMarkdown(`\n\n[Explain more →](${command})`);
           markdown.isTrusted = { enabledCommands: ['codeTeach.explain'] };

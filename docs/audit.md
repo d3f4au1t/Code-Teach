@@ -1,10 +1,10 @@
-# Code Teach 0.2.0 feature audit
+# Code Teach 0.2.1 feature audit
 
 Audited on 2026-10-20 against the original feature request and the 0.1.0 implementation. The review covered every source module, the extension manifest, packaging, demo, tests, documentation, privacy boundary, and measured workloads. This is a scoped engineering audit, not a security certification.
 
 ## Outcome
 
-The complete exploration flow passes in the real VS Code extension host: **hover checkout → open explanation → inspect source steps and caller arguments → visit checkoutRoute → Back → visit calculateTotal in another package → Back**. Unsaved caller edits and saved inherited compiler-configuration edits refresh the open panel automatically. The richer panel also passed an interactive browser preview review, including a 380 px layout with no horizontal overflow.
+The complete exploration flow passes in both the real VS Code extension host tests and native desktop interaction: **hover checkout → open explanation → inspect source steps and caller arguments → visit checkoutRoute → Back → visit calculateTotal in another package → Back**. Unsaved caller edits and saved inherited compiler-configuration edits refresh the open panel automatically in integration tests. The richer panel also passed an interactive browser preview review, including a 380 px layout with no horizontal overflow.
 
 The main teaching improvement is concrete evidence alongside prose: a clickable connection map, short source steps, source-line selection, and real call examples mapping arguments into parameters. The extension still does not execute project code or send it to an AI service.
 
@@ -21,6 +21,9 @@ The main teaching improvement is concrete evidence alongside prose: a clickable 
 | Medium | Initial indexing normalized user limits, but later editor updates used raw settings. Invalid/fractional settings could apply different bounds. | Share one normalization function between indexing and edits; test non-finite, negative, and excessive values. |
 | Usability | Explanation was dominated by prose and signatures; there was no small source lesson or concrete input example. | Add bounded steps, argument tables, a map, and source previews. Test source spans, omitted/default/rest/spread arguments and type-only `this`, deferred definitions, branches, loops, updates, and HTML escaping. |
 | Usability | Direction and step selection were lost on HTML refresh. | Persist direction and the current step for the same symbol location through webview state. Verified in script tests and the browser preview. |
+| Usability | Native hover prose scrolled horizontally because VS Code's `appendText` turns spaces into nonbreaking spaces. Truncation could also cut a word without indicating omitted text. | Keep Markdown escaping while restoring ordinary spaces, and truncate with a visible ellipsis at a word boundary where possible. The real-host regression failed before this fix and passed afterward; native visual inspection confirms wrapped prose. |
+| Usability | Choosing Explain more left the sticky hover covering the new panel. | Dismiss the editor hover before opening the explanation. Confirmed visually in the installed 0.2.1 extension. |
+| Compatibility | The demo's `baseUrl` option produced a deprecation error in VS Code's TypeScript 6.0.3. | Remove the unnecessary option and use a relative path-alias target. Full demo diagnostics are empty under TypeScript 5.9.3 and 6.0.3; native VS Code shows No Problems. |
 
 The first three analysis regressions were reproduced as failing tests before their fixes. Teaching tests likewise failed before the new fields were populated. Changes are in `src/analyzer.ts`, `src/teaching.ts`, `src/workspace.ts`, `src/extension.ts`, and `src/panel.ts`.
 
@@ -39,17 +42,17 @@ The first three analysis regressions were reproduced as failing tests before the
 | Incremental indexing, retrieval, caching, edits | Bounded first collection, unchanged AST reuse, worker analysis, 128-query LRU. Edits invalidate results and rebuild semantic links across indexed files on demand. Dependency-specific semantic invalidation is not implemented. |
 | Progress, cancellation, editor responsiveness | Explicit operations show cancellable progress. Queued work is removed on cancellation; active synchronous TypeScript computation finishes in its worker and its canceled result is discarded. Main-thread timer evidence is documented; native frame rate is unmeasured. |
 | Read-only source, exclusions, AI transparency | Extension reads/selects source only. Ignore rules, secrets/generated/vendor path defaults, symlinks, byte/file bounds, and edit-policy parity are tested. No external AI mode, network code, or remote panel resources. Secret detection is path-based, not content-based. |
-| Accessible, compact UI | Semantic controls, keyboard tabs, focus styles, theme colors, CSP, escaped source text, narrow layout, and state restoration checked. Native screen-reader and keyboard walkthroughs remain unverified. |
-| Runnable package and setup | Version 0.2.0 includes the worker and local runtime dependencies. README contains installation/F5 setup; docs/demo.md contains the full walkthrough. |
+| Accessible, compact UI | Semantic controls, keyboard tabs, focus styles, theme colors, CSP, escaped source text, narrow layout, and state restoration checked. Native keyboard-triggered hover, Explain more, map navigation, Back, and source-step selection passed. Screen-reader speech and a complete keyboard-only walkthrough remain unverified. |
+| Runnable package and setup | Version 0.2.1 includes the worker and local runtime dependencies and is installed in desktop VS Code. README contains installation/F5 setup; docs/demo.md contains the full walkthrough. |
 
 ## Validation evidence
 
 - `npm test`: **46 passed**, including analysis, edit invalidation, worker transport, history, policy bounds, richer teaching, and panel injection/CSP/state behavior.
 - `npm run test:integration`: passed on VS Code **1.142.0 / macOS arm64**. It runs on a temporary copy of the demo so tests cannot leave the user's demo source altered. Navigation tests use the same message handler as the real panel; browser interaction checks cover message generation and controls separately.
-- Demo TypeScript compilation: passed with `tsc --noEmit -p demo`.
+- Demo TypeScript compilation: zero diagnostics under both TypeScript 5.9.3 and the installed editor's 6.0.3.
 - `npm audit`: **0 known vulnerabilities**, including development dependencies, at audit time.
 - Interactive browser preview: caller/dependency/Back navigation, numbered steps, direction persistence, source content, and narrow layout checked. [Screenshot](panel-demo.png) shows the actual renderer in the preview, not native VS Code.
-- Native visual demo was blocked by the Mac lock screen. The user was asked to unlock it; automated extension-host checks continued successfully. No claim of native visual sign-off.
+- Native desktop demo: passed in the installed 0.2.1 extension. Keyboard-triggered hover → Explain more → checkoutRoute in `src/route.ts` → Back → calculateTotal in `packages/pricing/index.ts` → Back. The numbered source step selected line 7 in `checkout.ts`. Wrapped hover and automatic hover dismissal were visually checked after the fixes. See the [native hover](native-hover.png) and [native map and source lesson](native-demo.png). Earlier desktop-control failures were resolved by a normal VS Code quit and reopen; no force quit was used. Native unsaved-edit refresh remains covered by the extension-host test rather than manual source edits.
 - Performance: repeated dense synthetic run (1,000 files / 9.75 MB) measured **2.52 s cold analysis, 1.29 s after an edit, and 3.11 s cold worker round trip**. An earlier long pause is preserved and disclosed. See [performance methodology and raw data](performance.md); these are not arbitrary-repository latency guarantees.
 
 ## Remaining limits and priorities
