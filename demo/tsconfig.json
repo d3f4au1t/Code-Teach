@@ -3,8 +3,7 @@
     "target": "ES2022",
     "module": "commonjs",
     "strict": true,
-    "baseUrl": ".",
-    "paths": { "@demo/pricing": ["packages/pricing/index.ts"] }
+    "paths": { "@demo/pricing": ["./packages/pricing/index.ts"] }
   },
   "include": ["src/**/*.ts", "packages/**/*.ts"]
 }
