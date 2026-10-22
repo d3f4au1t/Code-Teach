@@ -1,8 +1,8 @@
 # Code Teach
 
-A VS Code extension that explains JavaScript and TypeScript as you explore a project. Hover a symbol for a short explanation, open **Explain more**, and follow its callers, dependencies, and data connections across indexed files and workspace packages.
+A VS Code extension that explains Java, JavaScript/TypeScript, Python, HTML, and CSS as you explore a project. Hover a symbol for a short explanation, open **Explain more**, and follow its callers, dependencies, and data connections across indexed files and workspace packages.
 
-This version uses local TypeScript analysis and source documentation. It does not call an AI service, transmit project code, execute project code, or modify source files. Explanations describe evidence available in source; they do not claim to observe runtime behavior.
+This version uses local TypeScript analysis, language syntax trees, and source documentation. It does not call an AI service, transmit project code, execute project code, or modify source files. Explanations describe evidence available in source; they do not claim to observe runtime behavior.
 
 ## Run the extension
 
@@ -23,10 +23,10 @@ For ongoing development, `npm run watch` recompiles changes. Restart the Extensi
 
 ```sh
 npm run package
-code --install-extension ./code-teach-0.2.1.vsix
+code --install-extension ./code-teach-0.3.0.vsix
 ```
 
-Alternatively, use **Extensions → … → Install from VSIX…** in VS Code and choose the generated file. Open your project folder after installation. The package includes the local analysis dependencies; the installed extension needs no separate `npm install`.
+Alternatively, use **Extensions → … → Install from VSIX…** in VS Code and choose the generated file. Open your project folder after installation. This installs Code Teach for your VS Code user profile, so it works in every supported project you open, including Java robot projects. If upgrading an already open window, use **Developer: Reload Window** once. The package includes the local analysis dependencies; the installed extension needs no separate `npm install`, JDK, Python runtime, or language-server extension.
 
 ## Explore a project
 
@@ -38,7 +38,7 @@ Alternatively, use **Extensions → … → Install from VSIX…** in VS Code an
 
 The connection map shows up to four callers/callees (or imports when there are no calls); the full Upstream/Downstream lists include data sources, consumers, and references. The chosen direction is remembered, and the current source step survives refreshes that keep the same symbol location. Branches, loops, deferred functions, and standard-array patterns are explained without running the project. Example arguments are written source expressions, not observed runtime values.
 
-A module means the nearest indexed named package, falling back to the selected file's directory. Function/class scales use the enclosing declaration where one exists; unavailable scales are not invented. Expression analysis uses the expression at the caret or selection endpoint, not an arbitrary multi-statement slice.
+For JavaScript/TypeScript, a module means the nearest indexed named package, falling back to the selected file's directory. For the new languages it means the selected file's directory. Function/class scales use the enclosing declaration where one exists; unavailable scales are not invented. JavaScript/TypeScript expression analysis uses the expression at the caret or selection endpoint. Java/Python expression scope explains the containing declaration; HTML/CSS selects an element, rule, or property. Arbitrary multi-statement slices are not analyzed.
 
 ### Commands
 
@@ -63,6 +63,19 @@ A module means the nearest indexed named package, falling back to the selected f
 
 Project-role descriptions use the definition's location, exports, callers, callees, and test references. Documentation supplies author intent and is labeled accordingly. Test references establish that a test mentions the symbol, not that it has adequate coverage. Project overviews link relevant indexed configuration and documentation; they do not guess the application's architecture or entry point.
 
+## Language support
+
+| Language | Navigation and teaching | Accuracy boundary |
+| --- | --- | --- |
+| JavaScript / TypeScript (including JSX/TSX) | Existing definitions, types, references, callers, callees, value connections, package aliases, source steps and examples | TypeScript source resolution; dynamic behavior remains uncertain |
+| Java | Classes, fields, methods, parameters, imports, constructors, declared receiver chains, same-package and imported method candidates, Javadocs and source steps | Syntax-based candidates; no compiler type checking, inherited dispatch, overload type selection or Gradle execution |
+| Python | Classes, functions, variables, imports/aliases, lexical and `self`/`cls` call candidates, docstrings and argument examples | No runtime execution or environment discovery; rebinding, decorators, arbitrary instance dispatch and search paths can change targets |
+| HTML + CSS | Elements/attributes, rules/properties, linked local scripts/stylesheets, CSS imports, simple selector-to-element connections | Literal tag, `.class` and `#id` matching; no browser layout, cascade evaluation, templates or embedded script/style analysis |
+
+Java/Python calls and variable-use candidates, and CSS matches, are explicitly **inferred**. JavaScript/TypeScript keeps its existing verified source links. A literal local resource or uniquely located relative module can have a verified source link; that still does not establish runtime execution. Absolute Python import targets are inferred because search paths are unknown. Unresolved calls remain visible with their source location.
+
+All languages share the connection map, source snippets, argument tables where applicable, source links, upstream/downstream controls, breadcrumbs, Back, automatic edit refresh, progress, and cancellation. New-language steps are shallow examples of what is written, not an executed trace. See [language walkthroughs and unsupported cases](docs/languages.md).
+
 ## Privacy and exclusions
 
 All analysis stays in the local extension host and its workers. **No code is transmitted to external AI, and there is no external AI mode or API-key setting.** The webview loads no remote resources. Installation and the integration-test runner may download development dependencies or VS Code; those downloads are separate from project analysis.
@@ -79,7 +92,7 @@ Secret exclusions are based on filenames and paths, not a credential detector. S
 }
 ```
 
-The index includes eligible JavaScript/TypeScript sources, tests, package/compiler configuration, and selected Markdown documentation. It does not index arbitrary binary assets or every file in a repository.
+The index includes eligible JavaScript/TypeScript, Java, Python, HTML and CSS sources, tests, package/compiler configuration, selected Gradle/Maven/Python configuration, and selected Markdown documentation. Python environments/caches, Gradle caches, `target`, compiled classes and bytecode are excluded. It does not index arbitrary binary assets or every file in a repository.
 
 ## Responsiveness and limits
 
@@ -98,8 +111,8 @@ Indexing exposes progress and cancellation. Queued analysis can be canceled; can
 | Directory entries examined | 50,000 per collection |
 | Displayed relationships | Up to 60 per direction |
 | Displayed child entries | Up to 60 |
-| Teaching preview | 12 steps, 3 call examples, 12 parameters per example |
-| Cached explanations | 128 per worker |
+| Teaching preview | Up to 12 steps (8 for Java/Python/HTML/CSS), 3 call examples, 12 parameters per example |
+| Cached explanations | Up to 128 per language backend in each worker |
 | Breadcrumb history | 50 visits |
 
 Truncated indexes and relationships are identified in analysis notes. Missing paths may be outside the index, excluded, unresolved, or beyond a display bound. Panel timing reports analyzer execution time, not total hover latency. See [measured performance and methodology](docs/performance.md) for the tested workloads and limits.
@@ -110,7 +123,7 @@ Truncated indexes and relationships are identified in analysis notes. Missing pa
 - Build transforms, generated runtime behavior, and resolving every bundler-specific alias or package export condition.
 - External dependency implementations in `node_modules`, standard-library declarations, and type declarations outside the eligible index. Some types and calls therefore remain unknown.
 - Multiple compiler configurations in a monorepo. Only the root `tsconfig.json` or `jsconfig.json` supplies compiler options; save compiler-configuration changes before refreshing; nested configurations are not merged. Inherited configurations must themselves be indexed.
-- Whole-repository architectural synthesis, natural-language AI tutoring, other language families, browser-hosted VS Code, and virtual filesystems.
+- Whole-repository architectural synthesis, natural-language AI tutoring, languages outside the support table, browser-hosted VS Code, and virtual filesystems.
 
 Literal imports, source-level calls/references, root TypeScript path aliases, and eligible packages within the same workspace root are the primary navigation paths. Unresolved behavior remains explicit rather than being presented as a verified execution path.
 
@@ -120,6 +133,7 @@ Literal imports, source-level calls/references, root TypeScript path aliases, an
 npm test
 npm run test:integration
 npm run benchmark
+npm run benchmark:languages
 npm run package
 ```
 
@@ -127,4 +141,4 @@ npm run package
 
 Follow the [checkout demonstration](docs/demo.md) for the complete hover → upstream caller → downstream package → return flow.
 
-See the [feature audit and resolved issues](docs/audit.md) for the current verification results and remaining gaps.
+See the [0.3.0 language audit and demos](docs/languages.md), [measured limits](docs/performance.md), and [earlier JS/TS feature audit](docs/audit.md).

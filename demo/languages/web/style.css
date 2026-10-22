@@ -1,0 +1,3 @@
+@import "./theme.css";
+.primary { background: var(--accent); padding: 1rem; color: white; }
+#pay { border-radius: 0.5rem; }

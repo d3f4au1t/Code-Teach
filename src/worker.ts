@@ -1,5 +1,5 @@
 import { parentPort } from 'node:worker_threads';
-import { Analyzer } from './analyzer';
+import { ProjectAnalyzer as Analyzer } from './project';
 import { WorkerRequest, WorkerResponse } from './model';
 
 let analyzer: Analyzer | undefined;

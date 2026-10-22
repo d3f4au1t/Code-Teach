@@ -18,3 +18,7 @@ dist/scripts/**
 !node_modules/typescript/ThirdPartyNoticeText.txt
 !node_modules/ignore/LICENSE-MIT
 .gitignore
+
+!node_modules/@lezer/*/package.json
+!node_modules/@lezer/*/dist/index.cjs
+!node_modules/@lezer/*/LICENSE

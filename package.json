@@ -1,8 +1,8 @@
 {
   "name": "code-teach",
   "displayName": "Code Teach",
-  "description": "Learn a JavaScript or TypeScript project through source-backed explanations and code connections.",
-  "version": "0.2.1",
+  "description": "Learn Java, JavaScript/TypeScript, Python, HTML and CSS through source-backed explanations and code connections.",
+  "version": "0.3.0",
   "publisher": "code-teach-local",
   "license": "MIT",
   "engines": {
@@ -17,7 +17,11 @@
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
     "onLanguage:typescript",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:java",
+    "onLanguage:python",
+    "onLanguage:html",
+    "onLanguage:css"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -44,7 +48,7 @@
       "editor/context": [
         {
           "command": "codeTeach.explain",
-          "when": "resourceLangId =~ /^(javascript|javascriptreact|typescript|typescriptreact)$/",
+          "when": "resourceLangId =~ /^(javascript|javascriptreact|typescript|typescriptreact|java|python|html|css)$/",
           "group": "navigation@10"
         }
       ]
@@ -84,9 +88,15 @@
     "benchmark": "npm run compile && node dist/scripts/benchmark.js",
     "test:integration": "npm run compile && node dist/test/runIntegration.js",
     "vscode:prepublish": "npm run compile",
-    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links"
+    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links",
+    "benchmark:languages": "npm run compile && node dist/scripts/benchmark-languages.js"
   },
   "dependencies": {
+    "@lezer/common": "^1.5.4",
+    "@lezer/css": "^1.3.9",
+    "@lezer/html": "^1.3.13",
+    "@lezer/java": "^1.1.5",
+    "@lezer/python": "^1.1.19",
     "ignore": "^7.0.5",
     "typescript": "^5.9.3"
   },

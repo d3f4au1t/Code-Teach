@@ -24,7 +24,7 @@ The dense benchmark sampled 1,359.0 MiB of process RSS after the worker query. *
 - File edits update only the changed file's text and reuse other parsed syntax trees. The next query rebuilds semantic references across indexed files so upstream callers cannot remain stale. **Dependency-specific semantic invalidation is not implemented.** The dense edit result above is the practical cost of that tradeoff.
 - Uncached relationship expansion examines the chosen source and stored reference/call maps. It never recursively expands the graph. At most 60 paths per direction and 60 children/behavior entries are displayed, with truncation notes. The overview displays at most 60 files; open another file in the editor to explore beyond that list.
 - Teaching previews show at most 12 statement steps, 600 characters per step, 1,200 characters of step explanation, 3 real call examples with 12 parameter mappings each, and 3,600 characters of source. These are source previews, not executed traces.
-- Each worker keeps 128 query results in an LRU cache. Any file update invalidates those results. History retains at most 50 steps and collapses revisited paths.
+- Each worker keeps up to 128 query results per backend (JS/TS uses LRU; the syntax backend evicts oldest entries). Any file update invalidates those results. History retains at most 50 steps and collapses revisited paths.
 - Explicit exploration/indexing uses cancellable progress. Canceling an active TypeScript query discards the response; the synchronous computation finishes inside its worker before the next queued request runs. Cancellation does not preempt TypeScript. File traversal checks cancellation between entries.
 - Multiple workspace folders have independent indexes/workers. Cross-folder relationships are not resolved; place related workspace packages under one opened root.
 
@@ -34,4 +34,22 @@ For repositories beyond these limits, narrow the opened folder or use `codeTeach
 
 `npm test` covers static relationships, alias/package resolution, callback uncertainty, cycles, edit/delete invalidation, worker transport, history, panel injection/CSP, repository ignore rules, secrets, symlinks, size limits, and cancellation. The VS Code extension-host integration test covers the teaching hover, panel explanation, source-linked upstream and downstream navigation, Back, and unsaved edit invalidation using the included checkout project.
 
-The latest test run used VS Code 1.142.0 on macOS arm64. Windows/Linux and the declared minimum VS Code 1.95 have not been run. Native clicking was blocked by a locked Mac. The real extension-host test passed the hover, shared webview message handler, source selection, caller/package navigation, Back, stale-message rejection, and automatic refresh after unsaved source edits and saved inherited configuration edits. The same rendered panel was also exercised in a local browser preview: map navigation, numbered steps, remembered direction, and a 380 px narrow layout with no horizontal overflow. [Preview screenshot](panel-demo.png). This preview is not a native VS Code screenshot. Screen-reader and native keyboard walkthroughs remain unverified.
+The earlier 0.2.1 test run used VS Code 1.142.0 on macOS arm64; the 0.3.0 extension-host test passed on 1.143.0. Windows/Linux and the declared minimum VS Code 1.95 have not been run. The initial native check was blocked by a locked Mac; the later 0.2.1 native walkthrough passed as recorded in [the audit](audit.md). The real extension-host test passed the hover, shared webview message handler, source selection, caller/package navigation, Back, stale-message rejection, and automatic refresh after unsaved source edits and saved inherited configuration edits. The same rendered panel was also exercised in a local browser preview: map navigation, numbered steps, remembered direction, and a 380 px narrow layout with no horizontal overflow. [Preview screenshot](panel-demo.png). This preview is not a native VS Code screenshot. Screen-reader and native keyboard walkthroughs remain unverified.
+
+## Version 0.3.0 language benchmarks
+
+Measured on 2026-10-22, Apple M3 / macOS arm64 / Node 22.22.2. Run `npm run benchmark:languages`. [Raw results](benchmark-languages.json) include 100-file and 1,000-file runs. These deliberately small source files measure graph and parser overhead; they do not establish performance on dense production code.
+
+| Language | Files | Bytes | Cold analysis | Cached p95 | After edit | Cold worker round trip | Main-thread timer ticks |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Java | 1,000 | 92,767 | 128.52 ms | 0.011 ms | 90.65 ms | 244.53 ms | 43 |
+| Python | 1,000 | 82,844 | 266.96 ms | 0.001 ms | 259.71 ms | 373.79 ms | 66 |
+| HTML/CSS | 1,000 | 58,890 | 23.07 ms | 0.001 ms | 3.16 ms | 138.65 ms | 24 |
+
+Java and Python fixtures form a chain of imported/class-qualified calls. HTML/CSS uses document/stylesheet pairs with a literal class match. Each run checks that a relationship exists before an edit and disappears afterwards. Cold timing includes construction, parsing, relation extraction and the first explanation; worker timing separately includes startup and transport. Cache p95 uses 50 queries. Timer ticks use a 5 ms interval while the worker analyzes; they demonstrate main-thread scheduling, not editor frame rate. Disk traversal, rendering and the hover debounce are excluded.
+
+The new backend shows up to eight direct source steps of 700 characters, 3,000 characters of source, three examples and 12 bindings per example. It keeps up to 128 cached explanations alongside the existing JS/TS cache. New-language graph rebuilding still scans the index after an edit; per-file dependency invalidation and hard preemption are not implemented. No isolated peak-memory measurement was made for the new backend.
+
+### Read-only project check
+
+The packaged 0.3.0 worker was also checked against a local FTC Java workspace: 232 eligible source/context files, 2,145,087 indexed bytes, 74.22 ms collection, and 1318.85 ms for worker startup plus the first method explanation. The main-thread timer fired 234 times during that worker request. A cross-file caller, a downstream method and return through navigation history all resolved. This is a single local observation, not a distribution or hardware test; the private project is not included as a benchmark fixture. No project source was changed or executed by this check.

@@ -96,5 +96,45 @@ export async function run() {
     await fs.rm(alternative,{force:true});
   }
   await action({action:'refresh'});
-  console.log('Code Teach extension-host demo passed: hover → steps/examples → caller → package dependency → Back → automatic edit/config refresh; stale messages rejected.');
+  for (const [relative,needle,name] of [
+    ['languages/java/Checkout.java','checkout(', 'checkout'],
+    ['languages/python/checkout.py','checkout(', 'checkout'],
+    ['languages/web/index.html','button', 'button'],
+    ['languages/web/style.css','primary', '.primary'],
+  ]) {
+    const file=path.join(root,relative), doc=await vscode.workspace.openTextDocument(file);
+    const offset=doc.getText().indexOf(needle), pos=doc.positionAt(offset);
+    await vscode.window.showTextDocument(doc);
+    const hover=await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider',doc.uri,pos);
+    assert.ok(hover?.some(h=>h.contents.some(c=>(typeof c==='string'?c:c.value).includes('Explain more'))),relative+' has a teaching hover');
+    await vscode.commands.executeCommand('codeTeach.explain',{file,offset});
+    assert.equal(current().name,name);
+    if(relative.endsWith('Checkout.java')||relative.endsWith('checkout.py')) {
+      const upstream=current().upstream.findIndex(e=>e.kind==='caller');assert.ok(upstream>=0);
+      await action({action:'navigate',direction:'upstream',index:upstream});assert.equal(current().name,'handle');
+      await action({action:'back'});assert.equal(current().name,name);
+      const downstream=current().downstream.findIndex(e=>e.kind==='callee'&&e.target);assert.ok(downstream>=0);
+      await action({action:'navigate',direction:'downstream',index:downstream});assert.equal(current().name,'total');
+      await action({action:'back'});assert.equal(current().name,name);
+      if(relative.endsWith('Checkout.java')) {
+        const caller=await vscode.workspace.openTextDocument(path.join(root,'languages/java/Route.java'));
+        const original=caller.getText();
+        const replaceCaller=async(text:string)=>{const edit=new vscode.WorkspaceEdit();edit.replace(caller.uri,new vscode.Range(caller.positionAt(0),caller.positionAt(caller.getText().length)),text);assert.ok(await vscode.workspace.applyEdit(edit));};
+        try {
+          await replaceCaller(original.replace('Checkout.checkout(prices)','0'));
+          await until(()=>!!api.getCurrentExplanation()&&!current().upstream.some(e=>e.kind==='caller'),'unsaved Java edit removes the caller from the panel');
+        } finally {await replaceCaller(original);}
+        await until(()=>current()?.upstream.some(e=>e.kind==='caller'),'restoring Java restores the caller');
+      }
+    }
+  }
+  const html=await vscode.workspace.openTextDocument(path.join(root,'languages/web/index.html'));
+  const htmlOriginal=html.getText();
+  const editHtml=async(text:string)=>{const edit=new vscode.WorkspaceEdit();edit.replace(html.uri,new vscode.Range(html.positionAt(0),html.positionAt(html.getText().length)),text);assert.ok(await vscode.workspace.applyEdit(edit));};
+  try {
+    await editHtml(htmlOriginal.replace('class="primary"','class="secondary"'));
+    await until(()=>!!api.getCurrentExplanation()&&!current().downstream.some(e=>e.kind==='consumer'),'unsaved HTML changes refresh CSS consumer links');
+  } finally {await editHtml(htmlOriginal);}
+  await until(()=>current()?.downstream.some(e=>e.kind==='consumer'),'restoring HTML restores CSS connections');
+  console.log('Code Teach extension-host demo passed: hover → steps/examples → caller → package dependency → Back → automatic edit/config refresh; stale messages rejected; Java/Python/HTML/CSS hovers and navigation, Java/HTML edit refresh passed.');
 }

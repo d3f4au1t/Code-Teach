@@ -6,8 +6,7 @@ import { collectProject, isAllowedFile, readBounded, expandEditorExcludes, isAll
 import { renderPanel } from './panel';
 import { ExplorationHistory } from './history';
 
-const languages = ['javascript', 'javascriptreact', 'typescript', 'typescriptreact'];
-const sourcePattern = /\.(?:[cm]?[jt]sx?)$/i;
+import { languageIds as languages, sourcePattern } from './languages';
 const scopes: Scope[] = ['expression', 'function', 'class', 'file', 'module', 'project'];
 
 function hoverText(value: string, limit: number): string {
@@ -64,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   async function sessionFor(file?: string, token?: vscode.CancellationToken): Promise<Session> {
     const folder = folderFor(file);
-    if (!folder || folder.uri.scheme !== 'file') throw new Error('Open a local JavaScript/TypeScript project folder first.');
+    if (!folder || folder.uri.scheme !== 'file') throw new Error('Open a local project folder first.');
     const root = folder.uri.fsPath;
     let pending = sessions.get(root);
     if (!pending) {
@@ -278,7 +277,7 @@ export function activate(context: vscode.ExtensionContext) {
           if (typeof candidate.file === 'string' && typeof candidate.offset === 'number' && Number.isInteger(candidate.offset) && candidate.offset >= 0 && (!candidate.scope || scopes.includes(candidate.scope))) query = candidate as AnalysisQuery;
         }
         if (!query && editor && editor.document.uri.scheme === 'file') query = {file:editor.document.uri.fsPath,offset:editor.document.offsetAt(editor.selection.active),scope:editor.selection.isEmpty ? undefined : 'expression'};
-        if (!query) throw new Error('Open a JavaScript/TypeScript file and select some code.');
+        if (!query) throw new Error('Open a Java, JavaScript/TypeScript, Python, HTML or CSS file and select some code.');
         await vscode.commands.executeCommand('editor.action.hideHover');
         await show(query);
       } catch (error) { report(error); }
@@ -289,7 +288,7 @@ export function activate(context: vscode.ExtensionContext) {
           const session = await sessionFor(undefined, token);
           if (token.isCancellationRequested) return;
           const file = [...session.files.keys()].find(file => sourcePattern.test(file));
-          if (!file) throw new Error('No eligible JavaScript/TypeScript files were found.');
+          if (!file) throw new Error('No eligible Java, JavaScript/TypeScript, Python, HTML or CSS files were found.');
           await show({file,offset:0,scope:'project'});
         });
       } catch (error) { report(error); }

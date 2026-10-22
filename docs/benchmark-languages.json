@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-22T16:52:01.176Z",
+  "node": "v22.22.2",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M3",
+  "results": [
+    {
+      "language": "Java",
+      "files": 100,
+      "bytes": 9068,
+      "coldMs": 22.36,
+      "cachedP95Ms": 0.005,
+      "afterEditMs": 2.22,
+      "workerRoundTripMs": 128.78,
+      "mainThreadTimerTicks": 22
+    },
+    {
+      "language": "Java",
+      "files": 1000,
+      "bytes": 92767,
+      "coldMs": 128.52,
+      "cachedP95Ms": 0.011,
+      "afterEditMs": 90.65,
+      "workerRoundTripMs": 244.53,
+      "mainThreadTimerTicks": 43
+    },
+    {
+      "language": "Python",
+      "files": 100,
+      "bytes": 8145,
+      "coldMs": 13.59,
+      "cachedP95Ms": 0.002,
+      "afterEditMs": 2.72,
+      "workerRoundTripMs": 119.93,
+      "mainThreadTimerTicks": 21
+    },
+    {
+      "language": "Python",
+      "files": 1000,
+      "bytes": 82844,
+      "coldMs": 266.96,
+      "cachedP95Ms": 0.001,
+      "afterEditMs": 259.71,
+      "workerRoundTripMs": 373.79,
+      "mainThreadTimerTicks": 66
+    },
+    {
+      "language": "HTML/CSS",
+      "files": 100,
+      "bytes": 5840,
+      "coldMs": 6.04,
+      "cachedP95Ms": 0.001,
+      "afterEditMs": 0.4,
+      "workerRoundTripMs": 110.63,
+      "mainThreadTimerTicks": 19
+    },
+    {
+      "language": "HTML/CSS",
+      "files": 1000,
+      "bytes": 58890,
+      "coldMs": 23.07,
+      "cachedP95Ms": 0.001,
+      "afterEditMs": 3.16,
+      "workerRoundTripMs": 138.65,
+      "mainThreadTimerTicks": 24
+    }
+  ]
+}

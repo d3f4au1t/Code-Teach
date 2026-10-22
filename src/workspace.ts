@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import ignore, { Ignore } from 'ignore';
 import ts from 'typescript';
 import { IndexedFile, ProjectInput } from './model';
+import { sourcePattern as SOURCE } from './languages';
 
 export interface IndexOptions {
   maxFiles?: number;
@@ -13,15 +14,14 @@ export interface IndexOptions {
   onProgress?: (files: number) => void;
 }
 
-const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
-const DEFAULT_DIRECTORIES = new Set(['.git', '.svn', '.hg', 'node_modules', 'vendor', 'dist', 'build', 'out', 'coverage', 'generated', '__generated__', '.next', '.nuxt', '.cache', '.turbo', '.venv', 'secrets', '.secrets', 'credentials', '.credentials', 'keys']);
+const DEFAULT_DIRECTORIES = new Set(['.git', '.svn', '.hg', 'node_modules', 'vendor', 'dist', 'build', 'out', 'coverage', 'generated', '__generated__', '.next', '.nuxt', '.cache', '.turbo', '.venv', 'venv', '__pycache__', 'site-packages', '.gradle', '.mypy_cache', '.pytest_cache', '.ruff_cache', 'target', 'secrets', '.secrets', 'credentials', '.credentials', 'keys']);
 const MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const MAX_CONTEXT_FILES = 100;
 const MAX_ENTRIES = 50_000;
 interface Rules { directory: string; matcher: Ignore; }
 
 export function requiresReindex(file: string): boolean {
-  return /^(?:package|[jt]sconfig(?:[.-][^.]+)*)\.json$/i.test(path.basename(file)) || ['.gitignore', '.ignore'].includes(path.basename(file));
+  return /^(?:package|[jt]sconfig(?:[.-][^.]+)*)\.json$/i.test(path.basename(file)) || ['.gitignore', '.ignore', 'pom.xml', 'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts', 'pyproject.toml', 'requirements.txt'].includes(path.basename(file));
 }
 
 export function indexLimits(options: IndexOptions): {maxFiles: number; maxFileKB: number} {
@@ -81,9 +81,9 @@ function defaultExcluded(name: string, directory: boolean): boolean {
   return (directory && DEFAULT_DIRECTORIES.has(lower))
     || /^(?:\.?env(?:\.|$)|\.?secrets?(?:[._-]|$)|\.?credentials?(?:[._-]|$)|id_(?:rsa|dsa|ecdsa|ed25519)(?:\.|$))/.test(lower)
     || /(?:private|secret)[_-]?key/.test(lower)
-    || /\.(?:pem|key|p12|pfx|keystore|jks|map)$/.test(lower)
-    || /\.min\.[cm]?[jt]s$/.test(lower)
-    || /(?:[.-](?:generated|gen|g))\.[cm]?[jt]sx?$/.test(lower)
+    || /\.(?:pem|key|p12|pfx|keystore|jks|map|pyc|class)$/.test(lower)
+    || /\.min\.(?:[cm]?[jt]s|css)$/.test(lower)
+    || /(?:[.-](?:generated|gen|g))\.(?:[cm]?[jt]sx?|java|py|css|html?)$/.test(lower)
     || /^(?:package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|\.npmrc|\.pypirc|\.netrc)$/.test(lower);
 }
 function contextFile(relative: string): boolean {
@@ -91,7 +91,8 @@ function contextFile(relative: string): boolean {
   return /^(?:package|[jt]sconfig(?:[.-][^.]+)*)\.json$/i.test(base)
     || /^(?:readme|architecture|contributing)(?:[.-].*)?\.(?:md|txt)$/i.test(base)
     || /(?:^|\/)(?:docs?|documentation)\/.*\.md$/i.test(slash(relative))
-    || /^(?:jest\.config|\.eslintrc|\.babelrc)\.json$/i.test(base);
+    || /^(?:jest\.config|\.eslintrc|\.babelrc)\.json$/i.test(base)
+    || ['pom.xml', 'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts', 'pyproject.toml', 'requirements.txt'].includes(base);
 }
 function eligible(relative: string): boolean { return SOURCE.test(relative) || contextFile(relative); }
 function excluded(root: string, file: string, directory: boolean, rules: Rules[], extra: Ignore): boolean {
