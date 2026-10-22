@@ -20,9 +20,10 @@ export function renderPanel(explanation: Explanation, history: Array<{ name: str
   const mapColumn = (direction: 'upstream' | 'downstream') => {
     const candidates = explanation[direction].map((edge, index) => ({edge, index}));
     const calls = candidates.filter(({edge}) => edge.kind === (direction === 'upstream' ? 'caller' : 'callee'));
-    const edges = calls.length ? calls : candidates.filter(({edge}) => edge.kind === 'import');
-    return `<div class="map-column"><h3>${direction === 'upstream' ? 'Upstream' : 'Downstream'}</h3>${edges.slice(0, 4).map(({edge, index}) => `<button class="map-node" data-action="navigate" data-direction="${direction}" data-index="${index}" ${edge.target ? '' : 'disabled'}><small>${escape(edge.kind)} · ${escape(edge.certainty)}</small><strong>${escape(edge.target?.label ?? edge.evidence.label)}</strong></button>`).join('') || '<p class="muted">No call or import resolved.</p>'}${edges.length > 4 ? `<small>+ ${edges.length - 4} more below</small>` : ''}</div>`;
+    const edges = calls.length ? calls : candidates;
+    return `<div class="map-column ${direction}"><h3>${direction === 'upstream' ? 'Upstream' : 'Downstream'}</h3><p class="map-help">${direction === 'upstream' ? 'Calls or supplies this code' : 'Called or affected by this code'}</p><ul class="tree-branches">${edges.slice(0, 4).map(({edge, index}) => `<li><button class="map-node" data-action="navigate" data-direction="${direction}" data-index="${index}" ${edge.target ? '' : 'disabled'}><span class="node-meta">${escape(edge.kind)} <span class="certainty ${edge.certainty === 'verified' ? 'verified' : 'inferred'}">${escape(edge.certainty)}</span></span><strong>${escape(edge.target?.label ?? edge.evidence.label)}</strong><small>${escape(basename(edge.target?.file ?? edge.evidence.file))}</small></button></li>`).join('') || '<li class="map-empty">No source paths found here.</li>'}</ul>${edges.length > 4 ? `<small>+ ${edges.length - 4} more in the path list</small>` : ''}</div>`;
   };
+  const chapter = (number: string, title: string, id: string, description: string) => `<div class="chapter-heading"><span class="chapter-number" aria-hidden="true">${number}</span><div><h2 id="${id}">${title}</h2><p class="muted">${description}</p></div></div>`;
   const relationships = (items: Relationship[], direction: 'upstream' | 'downstream') => items.length
     ? `<ol class="relationships">${items.map((relation, index) => {
       const target = relation.target;
@@ -41,113 +42,218 @@ export function renderPanel(explanation: Explanation, history: Array<{ name: str
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <title>Code Teach — ${escape(explanation.name)}</title>
 <style nonce="${nonce}">
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  --page: var(--vscode-editor-background, #111520);
+  --ink: var(--vscode-editor-foreground, #e5eaf5);
+  --muted: var(--vscode-descriptionForeground, #acb7cc);
+  --violet: #b6a0ff; --blue: #79c5ff; --green: #79dfb6; --amber: #f2c575; --rose: #ffa6af;
+  --surface: color-mix(in srgb, var(--page) 94%, var(--ink));
+  --border: color-mix(in srgb, var(--ink) 20%, var(--page));
+}
+body.vscode-light { --violet: #6842b5; --blue: #1465a3; --green: #18734c; --amber: #865905; --rose: #ad354e; }
 * { box-sizing: border-box; }
-body { margin: 0; color: var(--vscode-editor-foreground, #d4d4d4); background: var(--vscode-editor-background, #1e1e1e); font: var(--vscode-font-size, 13px)/1.6 var(--vscode-font-family, sans-serif); }
-main { max-width: 880px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 40px) 40px; }
-button { color: inherit; font: inherit; cursor: pointer; border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #555)); background: transparent; border-radius: 4px; padding: 5px 10px; }
-button:hover { background: var(--vscode-toolbar-hoverBackground, #ffffff18); }
-button:focus-visible, [tabindex="0"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #007fd4); outline-offset: 3px; }
-button:disabled { opacity: .6; cursor: default; }
-button:disabled:hover { background: transparent; }
+body { margin: 0; color: var(--ink); background: var(--page); font: var(--vscode-font-size, 13px)/1.6 var(--vscode-font-family, system-ui, sans-serif); }
+main { max-width: 1080px; margin: 0 auto; padding: 24px clamp(14px, 3vw, 36px) 36px; }
+button { color: inherit; font: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 11px; }
+button:hover { background: color-mix(in srgb, var(--ink) 10%, var(--page)); border-color: var(--accent, var(--violet)); }
+button:focus-visible, summary:focus-visible, [tabindex="0"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, var(--blue)); outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: default; }
 [hidden] { display: none !important; }
-a, .text-button { color: var(--vscode-textLink-foreground, #4daafc); }
-.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.brand { font-size: 11px; font-weight: 700; letter-spacing: .14em; }
-.toolbar-actions { display: flex; gap: 8px; }
-.breadcrumbs { display: flex; flex-wrap: wrap; gap: 3px 7px; list-style: none; padding: 0; margin: 16px 0 28px; }
-.breadcrumbs li { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.breadcrumbs li:not(:last-child)::after { content: '/'; opacity: .5; }
-.breadcrumbs button { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px; border: 0; }
-.breadcrumbs [aria-current] { color: inherit; }
-h1 { font-size: 27px; line-height: 1.25; letter-spacing: -.03em; margin: 8px 0; overflow-wrap: anywhere; }
-h2 { font-size: 16px; line-height: 1.4; margin: 0 0 10px; }
-h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; color: var(--vscode-descriptionForeground, #aaa); }
-p { margin: 8px 0; }
-.summary { font-size: 15px; margin: 14px 0; }
-.muted, .evidence-line, footer, .unresolved { color: var(--vscode-descriptionForeground, #aaa); }
-.kicker { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--vscode-descriptionForeground, #aaa); }
-.text-button { border: 0; padding: 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.toolbar, .toolbar-actions, .brand, .chapter-heading, .hero-meta { display: flex; align-items: center; gap: 10px; }
+.toolbar { justify-content: space-between; flex-wrap: wrap; }
+.brand { font-size: 11px; font-weight: 800; letter-spacing: .15em; }
+.brand-mark { display: grid; place-items: center; width: 29px; height: 29px; background: var(--violet); color: var(--page); border-radius: 8px; font: 800 15px monospace; letter-spacing: -.2em; padding-right: 3px; }
+.toolbar-actions { gap: 6px; }
+.toolbar-actions button { font-size: 12px; }
+.breadcrumbs { display: flex; flex-wrap: wrap; gap: 4px 8px; list-style: none; padding: 0; margin: 16px 0; font-size: 12px; }
+.breadcrumbs li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.breadcrumbs li:not(:last-child)::after { content: '›'; color: var(--muted); }
+.breadcrumbs button { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumbs [aria-current] { color: var(--violet); }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; letter-spacing: -.04em; margin: 14px 0; overflow-wrap: anywhere; }
+h2 { font-size: 19px; line-height: 1.3; margin: 0; letter-spacing: -.02em; }
+h3 { font-size: 12px; margin: 0; }
+p { margin: 8px 0; overflow-wrap: anywhere; }
+.muted, .evidence-line, footer, .unresolved, .map-help { color: var(--muted); }
+.text-button { color: var(--blue); border: 0; background: transparent; padding: 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.text-button:hover { background: transparent; color: var(--ink); }
+.hero { --accent: var(--violet); border: 1px solid color-mix(in srgb, var(--violet) 44%, var(--page)); border-radius: 18px; padding: clamp(18px, 3vw, 30px); background: radial-gradient(ellipse at top right, color-mix(in srgb, var(--violet) 22%, transparent), transparent 65%), linear-gradient(120deg, color-mix(in srgb, var(--violet) 8%, var(--page)), var(--surface)); position: relative; overflow: hidden; }
+.hero::before { content: ''; display: block; height: 4px; position: absolute; top: 0; left: 0; right: 0; background: linear-gradient(90deg, var(--violet), var(--blue), var(--green)); }
+.hero-meta { justify-content: space-between; flex-wrap: wrap; }
+.kicker { font-size: 10px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: var(--violet); }
+.local-pill { color: var(--green); font-size: 10px; border: 1px solid color-mix(in srgb, var(--green) 40%, var(--page)); border-radius: 20px; padding: 2px 8px; background: color-mix(in srgb, var(--green) 8%, var(--page)); }
+.summary { font-size: 16px; line-height: 1.65; max-width: 70ch; margin: 12px 0 18px; }
 .source { font-size: 12px; }
-.scopes { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0; }
-.scopes button { font-size: 11px; text-transform: capitalize; padding: 3px 8px; }
-.scopes [aria-pressed="true"] { background: var(--vscode-button-background, #0078d4); color: var(--vscode-button-foreground, #fff); border-color: transparent; }
-section { margin-top: 26px; }
-.role { border-left: 3px solid var(--vscode-textLink-foreground, #4daafc); padding: 3px 0 3px 16px; }
-.connection-map { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr; gap: 6px; align-items: center; margin: 18px 0; }
-.map-column { min-width: 0; }
-.map-node { width: 100%; text-align: left; padding: 9px; margin: 4px 0; overflow-wrap: anywhere; }
-.map-node small, .map-node strong { display: block; }
-.map-node small { font-size: 10px; color: var(--vscode-descriptionForeground, #aaa); }
-.map-current { border: 2px solid var(--vscode-textLink-foreground, #4daafc); }
-.map-arrow { text-align: center; color: var(--vscode-textLink-foreground, #4daafc); }
-.step-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-.step-controls [aria-pressed="true"] { background: var(--vscode-button-background, #0078d4); color: var(--vscode-button-foreground, #fff); }
-.step-card { border: 1px solid var(--vscode-panel-border, #555); border-radius: 6px; padding: 16px; }
-.step-card h3 { color: inherit; text-transform: none; font-size: 15px; }
-.step-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.step-footer div { display: flex; gap: 6px; }
-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 12px 0; }
-th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border, #444); overflow-wrap: anywhere; }
+.lesson-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 22px; }
+.lesson-stats div { min-width: 0; }
+.lesson-stats strong { display: block; font-size: 25px; line-height: 1.2; color: var(--violet); }
+.lesson-stats div:first-child strong { color: var(--blue); }
+.lesson-stats div:last-child strong { color: var(--green); }
+.lesson-stats small { color: var(--muted); font-size: 11px; }
+.scopes { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 22px; }
+.scopes button { font-size: 11px; text-transform: capitalize; padding: 4px 9px; background: transparent; }
+.scopes [aria-pressed="true"] { background: color-mix(in srgb, var(--violet) 18%, var(--page)); color: var(--violet); border-color: var(--violet); }
+.role { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 15px; margin: 18px 0 26px; }
+.role::before { content: ''; background: linear-gradient(var(--violet), var(--blue)); border-radius: 8px; }
+.role h2 { font-size: 14px; color: var(--violet); }
+.role p { margin-bottom: 0; }
+.lesson-section { --accent: var(--blue); background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 14px; margin: 22px 0; padding: clamp(16px, 2.5vw, 26px); }
+.lesson-section.behavior { --accent: var(--amber); }
+.lesson-section.walkthrough { --accent: var(--violet); }
+.lesson-section.examples { --accent: var(--green); }
+.lesson-section.paths { --accent: var(--rose); }
+.lesson-section.structure { --accent: var(--amber); }
+.chapter-heading { gap: 12px; align-items: flex-start; margin-bottom: 18px; }
+.chapter-heading > div { min-width: 0; }
+.chapter-heading p { font-size: 12px; margin: 5px 0 0; }
+.chapter-number { flex: 0 0 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--page)); font-size: 11px; font-weight: 800; }
+.connection-map { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr); gap: 0; align-items: center; margin: 24px 0 8px; }
+.map-column { min-width: 0; --branch: var(--blue); }
+.map-column.downstream { --branch: var(--green); }
+.map-column h3 { color: var(--branch); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; }
+.map-help { font-size: 11px; margin: 4px 0 14px; }
+.tree-branches { padding: 0; margin: 0; list-style: none; }
+.tree-branches li { position: relative; padding: 5px 0; }
+.upstream .tree-branches { border-right: 2px solid color-mix(in srgb, var(--blue) 50%, var(--page)); padding-right: 14px; }
+.downstream .tree-branches { border-left: 2px solid color-mix(in srgb, var(--green) 50%, var(--page)); padding-left: 14px; }
+.tree-branches li::before { content: ''; position: absolute; top: 50%; width: 14px; height: 2px; background: color-mix(in srgb, var(--branch) 50%, var(--page)); }
+.upstream .tree-branches li::before { right: -14px; }
+.downstream .tree-branches li::before { left: -14px; }
+.map-node { width: 100%; text-align: left; padding: 10px; border: 1px solid color-mix(in srgb, var(--branch, var(--violet)) 40%, var(--page)); background: color-mix(in srgb, var(--branch, var(--violet)) 7%, var(--page)); border-radius: 9px; overflow-wrap: anywhere; }
+.map-node strong, .map-node small { display: block; }
+.map-node strong { font-size: 13px; margin: 5px 0; }
+.map-node small { font-size: 10px; color: var(--muted); }
+.node-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--branch, var(--violet)); font-size: 10px; }
+.map-current { --branch: var(--violet); padding: 16px 12px; border: 2px solid var(--violet); box-shadow: 0 0 0 5px color-mix(in srgb, var(--violet) 8%, transparent); }
+.map-current .node-meta { text-transform: uppercase; letter-spacing: .08em; }
+.map-current strong { font-size: 16px; }
+.map-arrow { text-align: center; color: var(--violet); font-size: 20px; }
+.map-empty { color: var(--muted); font-size: 11px; }
+.tree-key { display: flex; flex-wrap: wrap; gap: 14px; font-size: 10px; color: var(--muted); margin-top: 20px; }
+.tree-key span::before { content: ''; width: 7px; height: 7px; display: inline-block; border-radius: 50%; margin-right: 5px; background: var(--blue); }
+.tree-key span:nth-child(2)::before { background: var(--violet); }
+.tree-key span:nth-child(3)::before { background: var(--green); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; overflow-wrap: anywhere; }
+caption { text-align: left; font-size: 12px; color: var(--muted); padding: 8px 0; }
+th, td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--border); }
+tr:last-child > * { border-bottom: 0; }
 th { font-size: 12px; }
-.example { padding: 12px 0; }
-@media (max-width: 450px) { main { padding: 18px 14px; } .connection-map { grid-template-columns: 1fr; } .map-arrow { transform: rotate(90deg); } }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--vscode-panel-border, #444); border-radius: 5px; background: var(--vscode-textCodeBlock-background, #ffffff06); }
-code { font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; }
-.fact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 20px; }
-.facts { margin: 0; padding-left: 18px; }
+.io-table { border: 1px solid var(--border); border-radius: 10px; background: var(--page); }
+.io-table th { width: 26%; background: color-mix(in srgb, var(--blue) 8%, var(--page)); color: var(--blue); }
+.io-table tr:nth-child(2) th { background: color-mix(in srgb, var(--green) 8%, var(--page)); color: var(--green); }
+.io-table tr:nth-child(3) th { background: color-mix(in srgb, var(--rose) 8%, var(--page)); color: var(--rose); }
+.io-table th small { display: block; color: var(--muted); font-weight: 400; font-size: 10px; }
+.io-table p { margin: 0; }
+.facts { margin: 0; padding-left: 17px; }
 .facts li + li { margin-top: 6px; }
-.tablist { display: flex; gap: 8px; margin: 12px 0 0; border-bottom: 1px solid var(--vscode-panel-border, #444); }
-.tablist button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; }
-.tablist [aria-selected="true"] { border-bottom-color: var(--vscode-textLink-foreground, #4daafc); color: var(--vscode-textLink-foreground, #4daafc); }
-.count { display: inline-block; min-width: 20px; margin-left: 5px; border-radius: 12px; font-size: 11px; background: var(--vscode-badge-background, #4d4d4d); color: var(--vscode-badge-foreground, #fff); }
-.direction-help { color: var(--vscode-descriptionForeground, #aaa); margin: 12px 0; }
+.step-controls { display: flex; gap: 7px; flex-wrap: wrap; margin: 16px 0; }
+.step-controls button { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; font-size: 11px; text-align: left; padding: 7px 9px; max-width: 100%; }
+.step-controls button span { display: grid; place-items: center; flex: 0 0 22px; height: 22px; border-radius: 6px; background: color-mix(in srgb, var(--violet) 14%, var(--page)); color: var(--violet); font-weight: 800; }
+.step-controls [aria-pressed="true"] { border-color: var(--violet); background: color-mix(in srgb, var(--violet) 12%, var(--page)); }
+.step-controls [aria-pressed="true"] span { background: var(--violet); color: var(--page); }
+.step-card { --step-color: var(--blue); border: 1px solid var(--border); border-radius: 11px; overflow: hidden; background: var(--page); }
+.step-card[data-kind="branch"], .step-card[data-kind="loop"] { --step-color: var(--amber); }
+.step-card[data-kind="return"] { --step-color: var(--green); }
+.step-card[data-kind="effect"] { --step-color: var(--rose); }
+.step-card[data-kind="declaration"] { --step-color: var(--violet); }
+.step-card-header { padding: 15px 18px; background: color-mix(in srgb, var(--step-color) 9%, var(--page)); border-bottom: 1px solid var(--border); }
+.step-card h3 { font-size: 16px; margin-top: 5px; }
+.step-label { color: var(--step-color); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.step-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); }
+.step-code, .step-explanation { min-width: 0; padding: 18px; }
+.step-code { border-right: 1px solid var(--border); }
+.step-explanation { background: color-mix(in srgb, var(--step-color) 3%, var(--page)); }
+.cell-label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; font-weight: 650; }
+.step-explanation p { font-size: 14px; }
+.step-footer { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--border); font-size: 11px; }
+.step-footer div { display: flex; gap: 6px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--page); }
+code { font: 12px/1.8 var(--vscode-editor-font-family, ui-monospace, monospace); color: var(--blue); }
+.step-code pre { padding: 0; margin: 0; border: 0; background: transparent; }
+.example { border: 1px solid var(--border); border-radius: 11px; margin-top: 16px; padding: 16px; background: var(--page); }
+.example-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.example-label strong { color: var(--green); font-size: 11px; }
+.example th { background: color-mix(in srgb, var(--green) 10%, var(--page)); color: var(--green); }
+.example tbody tr:nth-child(even) { background: var(--surface); }
+.example td:first-child code { color: var(--violet); }
+.example .muted { font-size: 11px; margin-bottom: 0; }
+.tablist { display: flex; gap: 8px; margin-top: 18px; }
+.tablist button { --accent: var(--blue); border-radius: 9px; text-align: left; }
+.tablist button[data-tab="downstream"] { --accent: var(--green); }
+.tablist [aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--page)); color: var(--accent); }
+.count { display: inline-block; min-width: 22px; margin-left: 6px; text-align: center; border-radius: 5px; font-size: 11px; background: color-mix(in srgb, var(--accent) 17%, var(--page)); }
+.direction-help { color: var(--muted); font-size: 12px; margin: 16px 0; }
 .relationships, .children, .sources { padding: 0; list-style: none; margin: 0; }
-.relationship { padding: 16px 0; border-bottom: 1px solid var(--vscode-panel-border, #444); }
-.badges { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10px; letter-spacing: .03em; }
-.kind { text-transform: uppercase; font-weight: 700; }
-.certainty { border: 1px solid var(--vscode-panel-border, #555); border-radius: 3px; padding: 0 5px; }
-.verified { color: var(--vscode-testing-iconPassed, #89d185); }
-.inferred { color: var(--vscode-editorWarning-foreground, #cca700); }
-.path { font-weight: 600; font-size: 14px; text-align: left; border: 0; padding: 4px 0; overflow-wrap: anywhere; }
-.relationship p { margin: 3px 0 7px; }
-.evidence-line, .unresolved, .empty { font-size: 12px; }
-.children li, .sources li { padding: 8px 0; border-bottom: 1px solid var(--vscode-panel-border, #444); }
-.children button { text-align: left; width: 100%; border: 0; padding: 3px 0; }
-.children small { display: block; color: var(--vscode-descriptionForeground, #aaa); }
-.notice { padding: 10px 12px; border: 1px solid var(--vscode-editorWarning-foreground, #cca700); border-radius: 4px; margin-top: 16px; }
-details { margin-top: 24px; }
-summary { cursor: pointer; font-weight: 600; }
-details .facts { margin-top: 10px; }
-footer { font-size: 11px; border-top: 1px solid var(--vscode-panel-border, #444); margin-top: 30px; padding-top: 12px; }
+.relationship { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: var(--page); padding: 14px; margin-top: 10px; border-radius: 9px; }
+#downstream-panel .relationship { border-left-color: var(--green); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 10px; }
+.kind { text-transform: uppercase; font-weight: 750; letter-spacing: .07em; color: var(--blue); }
+#downstream-panel .kind { color: var(--green); }
+.certainty { border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; font-size: 9px; }
+.verified { color: var(--green); }
+.inferred { color: var(--amber); }
+.path { font-weight: 650; font-size: 15px; text-align: left; border: 0; background: transparent; padding: 7px 0; overflow-wrap: anywhere; }
+.relationship p { margin: 3px 0 8px; font-size: 12px; }
+.evidence-line, .unresolved, .empty { font-size: 11px; }
+.children { margin: 12px 0 0 9px; padding-left: 18px; border-left: 2px solid color-mix(in srgb, var(--amber) 45%, var(--page)); }
+.children li { position: relative; padding: 5px 0; }
+.children li::before { content: ''; position: absolute; width: 18px; height: 2px; top: 50%; left: -18px; background: color-mix(in srgb, var(--amber) 45%, var(--page)); }
+.children button { text-align: left; width: 100%; padding: 10px 13px; background: var(--page); overflow-wrap: anywhere; }
+.children small { display: block; color: var(--muted); font-size: 11px; }
+.sources li { padding: 9px 0; border-bottom: 1px solid var(--border); }
+.notice { padding: 12px; border: 1px solid var(--amber); border-radius: 9px; background: color-mix(in srgb, var(--amber) 8%, var(--page)); }
+details { margin-top: 14px; padding: 13px 16px; border: 1px solid var(--border); border-radius: 9px; }
+summary { cursor: pointer; font-weight: 600; font-size: 12px; }
+details[open] > summary { margin-bottom: 12px; color: var(--violet); }
+footer { font-size: 10px; border-top: 1px solid var(--border); margin-top: 26px; padding-top: 14px; }
+@media (max-width: 680px) {
+  .connection-map { grid-template-columns: minmax(0, 1fr); }
+  .map-current { width: calc(100% - 20px); margin-left: 20px; }
+  .map-arrow { height: 32px; width: 30px; margin-left: 22px; transform: rotate(90deg); }
+  .upstream .tree-branches { border-right: 0; border-left: 2px solid color-mix(in srgb, var(--blue) 50%, var(--page)); padding-right: 0; padding-left: 14px; }
+  .upstream .tree-branches li::before { right: auto; left: -14px; }
+  .step-body { grid-template-columns: minmax(0, 1fr); }
+  .step-code { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 400px) {
+  main { padding: 14px 10px; }
+  .lesson-section { padding: 14px 12px; }
+  .io-table th { width: 32%; }
+  th, td { padding: 10px 8px; }
+  .step-controls button { flex: 1 1 100%; }
+  .tablist button { padding: 6px 8px; }
+}
+@media (forced-colors: active) {
+  .hero, .lesson-section, .map-node, .step-card, .example { background: Canvas; color: CanvasText; border-color: CanvasText; }
+  .chapter-number, .brand-mark, .certainty { color: CanvasText; border: 1px solid CanvasText; }
+  .tree-branches, .children { border-color: CanvasText; }
+  .tree-branches li::before, .children li::before { background: CanvasText; }
+}
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style></head><body data-revision="${revision}" data-symbol="${escape(explanation.id)}"><main>
 <header>
-  <div class="toolbar"><span class="brand">CODE TEACH</span><div class="toolbar-actions"><button data-action="back" ${history.length < 2 ? 'disabled' : ''}>← Back</button><button data-action="refresh" title="Rebuild the local index and refresh this explanation">Refresh</button></div></div>
+  <div class="toolbar"><span class="brand"><span class="brand-mark" aria-hidden="true">{ }</span>CODE TEACH</span><div class="toolbar-actions"><button data-action="back" ${history.length < 2 ? 'disabled' : ''}>← Back</button><button data-action="refresh" title="Rebuild the local index and refresh this explanation">Refresh</button></div></div>
   <nav aria-label="Exploration breadcrumbs"><ol class="breadcrumbs">${history.map((entry, index) => `<li><button class="text-button" data-action="breadcrumb" data-index="${index}" ${index === history.length - 1 ? 'aria-current="page"' : ''}>${escape(entry.name)}</button></li>`).join('')}</ol></nav>
   ${notice ? `<p class="notice" role="status">${escape(notice)}</p>` : ''}
-  <span class="kicker">${escape(explanation.scope)}</span>
+  <div class="hero"><div class="hero-meta"><span class="kicker">Code lesson / ${escape(explanation.scope)}</span><span class="local-pill">Local · source-backed</span></div>
   <h1>${escape(explanation.name)}</h1>
   <button class="text-button source" data-action="source" data-index="-1" title="${escape(explanation.source.file)}">Open source · ${escape(basename(explanation.source.file))}</button>
-  <p class="summary">${escape(explanation.summary)}</p>
+  <p class="summary">${escape(explanation.summary)}</p><div class="lesson-stats" aria-label="Lesson at a glance"><div><strong>${explanation.upstream.length}</strong><small>upstream paths</small></div><div><strong>${explanation.steps.length}</strong><small>source steps</small></div><div><strong>${explanation.downstream.length}</strong><small>downstream paths</small></div></div></div>
 </header>
 <nav class="scopes" aria-label="Explanation scale">${scopes.map(scope => `<button data-action="scope" data-scope="${scope}" aria-pressed="${scope === explanation.scope}">${scope}</button>`).join('')}</nav>
-<section class="role" aria-labelledby="role-heading"><h2 id="role-heading">Its role in this project</h2><p>${escape(explanation.role)}</p></section>
-<section aria-labelledby="map-heading"><h2 id="map-heading">Where this connects</h2><p class="muted">Calls and imports written in source. Arrows show connection direction, not execution order.</p><div class="connection-map">${mapColumn('upstream')}<span class="map-arrow" aria-hidden="true">→</span><div class="map-node map-current"><small>You are here</small><strong>${escape(explanation.name)}</strong></div><span class="map-arrow" aria-hidden="true">→</span>${mapColumn('downstream')}</div></section>
-${explanation.steps.length ? `<section aria-labelledby="steps-heading"><h2 id="steps-heading">Read it step by step</h2><p class="muted">Follow the written code. Branches and loops decide the actual path at runtime.</p><div class="step-controls" aria-label="Source steps">${explanation.steps.map((step, index) => `<button data-step="${index}" aria-pressed="${index === 0}" title="${escape(step.title)}">${index + 1}</button>`).join('')}</div>${explanation.steps.map((step, index) => `<article class="step-card" data-step-card="${index}" ${index ? 'hidden' : ''}><h3>${index + 1}. ${escape(step.title)}</h3><pre><code>${escape(step.code)}</code></pre><p>${escape(step.detail)}</p><div class="step-footer"><button class="text-button" data-action="step" data-index="${index}">Show line ${step.source.line ?? '?'} in source</button><div><button data-step="${index - 1}" ${index === 0 ? 'disabled' : ''} aria-label="Previous source step">←</button><button data-step="${index + 1}" ${index === explanation.steps.length - 1 ? 'disabled' : ''} aria-label="Next source step">→</button></div></div></article>`).join('')}</section>` : ''}
-${explanation.examples.length ? `<section aria-labelledby="examples-heading"><h2 id="examples-heading">See a real call</h2>${explanation.examples.map((example, index) => `<div class="example"><button class="text-button" data-action="example" data-index="${index}">${escape(basename(example.source.file))} · line ${example.source.line ?? '?'}</button><pre><code>${escape(example.code)}</code></pre>${example.bindings.length ? `<table><thead><tr><th scope="col">Parameter inside this function</th><th scope="col">Argument supplied by the caller</th></tr></thead><tbody>${example.bindings.map(binding => `<tr><td><code>${escape(binding.parameter)}</code></td><td><code>${escape(binding.argument)}</code></td></tr>`).join('')}</tbody></table>` : ''}<p class="muted">${escape(example.note)}</p></div>`).join('')}</section>` : ''}
-<details><summary>Inputs, outputs & side effects</summary>${explanation.signature ? `<pre><code>${escape(explanation.signature)}</code></pre>` : ''}<section class="fact-grid" aria-label="Behavior">
-  <div><h3>Inputs</h3>${list(explanation.inputs, 'No inputs identified at this scale.')}</div>
-  <div><h3>Outputs</h3>${list(explanation.outputs, 'No outputs identified at this scale.')}</div>
-  <div><h3>Side effects</h3>${list(explanation.effects, 'No side effects identified statically. This does not prove there are none.')}</div>
-</section></details>
+<section class="role" aria-labelledby="role-heading"><div><h2 id="role-heading">Its role in this project</h2><p>${escape(explanation.role)}</p></div></section>
+<section class="lesson-section" aria-labelledby="map-heading">${chapter('01', 'Where this connects', 'map-heading', 'Choose a branch to explore. Arrows show source connections, not execution order.')}<div class="connection-map" role="group" aria-label="Connection tree">${mapColumn('upstream')}<span class="map-arrow" aria-hidden="true">→</span><div class="map-node map-current"><span class="node-meta">You are here</span><strong>${escape(explanation.name)}</strong><small>${escape(explanation.kind)} · ${escape(basename(explanation.source.file))}</small></div><span class="map-arrow" aria-hidden="true">→</span>${mapColumn('downstream')}</div><div class="tree-key" aria-hidden="true"><span>Upstream paths</span><span>This code</span><span>Downstream paths</span></div></section>
+<section class="lesson-section behavior" aria-labelledby="behavior-heading">${chapter('02', 'What goes in. What comes out.', 'behavior-heading', 'A quick reference to the behavior identified in source.')}<table class="io-table"><caption>Inputs, outputs & side effects</caption><tbody><tr><th scope="row">Inputs<small>What it receives</small></th><td>${list(explanation.inputs, 'No inputs identified at this scale.')}</td></tr><tr><th scope="row">Outputs<small>What it gives back</small></th><td>${list(explanation.outputs, 'No outputs identified at this scale.')}</td></tr><tr><th scope="row">Side effects<small>What else changes</small></th><td>${list(explanation.effects, 'No side effects identified statically. This does not prove there are none.')}</td></tr></tbody></table>${explanation.signature ? `<details><summary>Declaration & types</summary><pre><code>${escape(explanation.signature)}</code></pre></details>` : ''}</section>
+${explanation.steps.length ? `<section class="lesson-section walkthrough" aria-labelledby="steps-heading">${chapter('03', 'Read it step by step', 'steps-heading', 'One source idea at a time. Select a step to pair the code with its explanation.')}<div class="step-controls" aria-label="Source steps">${explanation.steps.map((step, index) => `<button data-step="${index}" aria-pressed="${index === 0}" title="${escape(step.title)}"><span>${index + 1}</span>${escape(step.title)}</button>`).join('')}</div>${explanation.steps.map((step, index) => `<article class="step-card" data-kind="${escape(step.kind)}" data-step-card="${index}" ${index ? 'hidden' : ''}><div class="step-card-header"><span class="step-label">Step ${index + 1} / ${explanation.steps.length} · ${escape(step.kind)}</span><h3>${escape(step.title)}</h3></div><div class="step-body"><div class="step-code"><span class="cell-label">The code · line ${step.source.line ?? '?'}</span><pre><code>${escape(step.code)}</code></pre></div><div class="step-explanation"><span class="cell-label">What this means</span><p>${escape(step.detail)}</p></div></div><div class="step-footer"><button class="text-button" data-action="step" data-index="${index}">Show line ${step.source.line ?? '?'} in source</button><div><button data-step="${index - 1}" ${index === 0 ? 'disabled' : ''} aria-label="Previous source step">←</button><button data-step="${index + 1}" ${index === explanation.steps.length - 1 ? 'disabled' : ''} aria-label="Next source step">→</button></div></div></article>`).join('')}</section>` : ''}
+${explanation.examples.length ? `<section class="lesson-section examples" aria-labelledby="examples-heading">${chapter('04', 'See a real call', 'examples-heading', 'Concrete source examples. Match each supplied argument to the parameter that receives it.')}${explanation.examples.map((example, index) => `<div class="example"><div class="example-label"><strong>EXAMPLE ${String(index + 1).padStart(2, '0')}</strong><button class="text-button" data-action="example" data-index="${index}">${escape(basename(example.source.file))} · line ${example.source.line ?? '?'}</button></div><pre><code>${escape(example.code)}</code></pre>${example.bindings.length ? `<table><caption>How the written arguments enter this function</caption><thead><tr><th scope="col">Parameter inside this function</th><th scope="col">Argument supplied by the caller</th></tr></thead><tbody>${example.bindings.map(binding => `<tr><td><code>${escape(binding.parameter)}</code></td><td><code>${escape(binding.argument)}</code></td></tr>`).join('')}</tbody></table>` : ''}<p class="muted">${escape(example.note)}</p></div>`).join('')}</section>` : ''}
 ${explanation.sourceCode ? `<details><summary>Read the source together</summary><pre><code>${escape(explanation.sourceCode)}</code></pre></details>` : ''}
-<section aria-labelledby="connections-heading"><h2 id="connections-heading">Follow the connections</h2><p class="muted">Choose a path. Verified means resolved in source; inferred means a static clue, not a runtime guarantee.</p>
+<section class="lesson-section paths" aria-labelledby="connections-heading">${chapter('↗', 'Follow the connections', 'connections-heading', 'All available paths. Verified means resolved in source; inferred is a clue, not a runtime guarantee.')}
   <div class="tablist" role="tablist" aria-label="Connection direction"><button id="upstream-tab" role="tab" aria-selected="true" aria-controls="upstream-panel" data-tab="upstream" tabindex="0">Upstream <span class="count">${explanation.upstream.length}</span></button><button id="downstream-tab" role="tab" aria-selected="false" aria-controls="downstream-panel" data-tab="downstream" tabindex="-1">Downstream <span class="count">${explanation.downstream.length}</span></button></div>
   <div id="upstream-panel" role="tabpanel" aria-labelledby="upstream-tab" tabindex="0"><p class="direction-help">What calls this, triggers it, or supplies its inputs?</p>${relationships(explanation.upstream, 'upstream')}</div>
   <div id="downstream-panel" role="tabpanel" aria-labelledby="downstream-tab" tabindex="0" hidden><p class="direction-help">What does this call, affect, or pass its results to?</p>${relationships(explanation.downstream, 'downstream')}</div>
 </section>
-${explanation.children.length ? `<section aria-labelledby="children-heading"><h2 id="children-heading">Explore inside</h2><ul class="children">${explanation.children.map((child, index) => `<li><button data-action="child" data-index="${index}" title="${escape(child.file)}">${escape(child.label)} <span aria-hidden="true">→</span><small>${escape(basename(child.file))}</small></button></li>`).join('')}</ul></section>` : ''}
+${explanation.children.length ? `<section class="lesson-section structure" aria-labelledby="children-heading">${chapter('↓', 'Explore inside', 'children-heading', 'Open a child to move from the bigger picture into concrete code.')}<ul class="children">${explanation.children.map((child, index) => `<li><button data-action="child" data-index="${index}" title="${escape(child.file)}">${escape(child.label)} <span aria-hidden="true">→</span><small>${escape(basename(child.file))}</small></button></li>`).join('')}</ul></section>` : ''}
 ${explanation.evidence.length ? `<details><summary>Source evidence</summary><ul class="sources">${explanation.evidence.map((source, index) => `<li><button class="text-button" data-action="source" data-index="${index}" title="${escape(source.file)}">${escape(source.label)} · ${escape(basename(source.file))}</button></li>`).join('')}</ul></details>` : ''}
 ${explanation.notes.length ? `<details><summary>Limits & analysis notes (${explanation.notes.length})</summary>${list(explanation.notes, '')}</details>` : ''}
 <footer>Local analysis · No code sent to external AI<br>${explanation.stats.files} indexed files · ${Math.round(explanation.stats.elapsedMs)} ms${explanation.stats.cached ? ' · cached result' : ''}</footer>

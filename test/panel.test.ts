@@ -126,3 +126,17 @@ test('panel sends only indexed navigation messages and supports accessible keybo
   assert.equal(upstream.getAttribute('aria-selected'), 'true');
   assert.equal(panels['downstream-panel'].hidden, true);
 });
+
+test('connection tree includes data and style paths with their original navigation indexes', () => {
+  const html=renderPanel({...explanation,upstream:[],downstream:[
+    {kind:'import',certainty:'inferred',detail:'Unresolved import.',evidence:source},
+    {kind:'consumer',certainty:'inferred',detail:'Matches a button.',evidence:source,target:{...source,label:'button',file:'/project/index.html'}},
+  ]},history);
+  const map=html.slice(html.indexOf('aria-label="Connection tree"'),html.indexOf('class="tree-key"'));
+  assert.match(map,/data-action="navigate" data-direction="downstream" data-index="1"/);
+  assert.match(map,/>consumer <span class="certainty inferred">inferred<\/span>/);
+  assert.match(map,/<strong>button<\/strong>/);
+  assert.match(map,/<small>index.html<\/small>/);
+  assert.match(map,/data-index="0" disabled/);
+  assert.match(html,/<table class="io-table"><caption>Inputs, outputs & side effects<\/caption>/);
+});
