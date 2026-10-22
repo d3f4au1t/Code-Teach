@@ -42,7 +42,7 @@ export function renderPanel(explanation: Explanation, history: Array<{ name: str
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <title>Code Teach — ${escape(explanation.name)}</title>
 <style nonce="${nonce}">
-:root {
+body {
   color-scheme: light dark;
   --page: var(--vscode-editor-background, #111520);
   --ink: var(--vscode-editor-foreground, #e5eaf5);
