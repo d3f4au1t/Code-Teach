@@ -23,7 +23,7 @@ For ongoing development, `npm run watch` recompiles changes. Restart the Extensi
 
 ```sh
 npm run package
-code --install-extension ./code-teach-0.3.0.vsix
+code --install-extension ./code-teach-0.3.1.vsix
 ```
 
 Alternatively, use **Extensions → … → Install from VSIX…** in VS Code and choose the generated file. Open your project folder after installation. This installs Code Teach for your VS Code user profile, so it works in every supported project you open, including Java robot projects. If upgrading an already open window, use **Developer: Reload Window** once. The package includes the local analysis dependencies; the installed extension needs no separate `npm install`, JDK, Python runtime, or language-server extension.
@@ -31,14 +31,20 @@ Alternatively, use **Extensions → … → Install from VSIX…** in VS Code an
 ## Explore a project
 
 1. **Hover** a function, variable, class, parameter, or other identifiable symbol. The compact explanation includes purpose, project role, inputs, output, and relevant effects when found.
-2. Choose **Explain more** for a persistent panel with a clickable connection map, numbered source steps, and real caller examples that map arguments to parameters. Each step explains a small piece of code; **Show line in source** selects it. Inputs, outputs, side effects, the full source preview, and evidence are available in expandable sections. **Open source** selects the supporting code in the editor.
+2. Choose **Explain more** for a persistent panel with a clickable connection map, numbered source steps, and real caller examples that map arguments to parameters. Each step explains a small piece of code; **Show line in source** selects it. Inputs, outputs, and side effects stay visible in a color-coded table. The full source preview and evidence expand on demand. **Open source** selects the supporting code in the editor.
 3. Select **Upstream** to find what calls the code or supplies values. Select **Downstream** to find what it calls or where values are used. Each listed path is independently selectable.
 4. Use **Back** or a breadcrumb to return. Navigation selects source without editing it. Revisiting an existing location collapses the current path to that step; recursion and import cycles never expand automatically.
 5. Change scale with **Expression**, **Function**, **Class**, **File**, **Module**, or **Project**. Project/module overviews list indexed files and import connections. **Explore inside** drills into files, symbols, or class members.
 
-The connection map shows up to four callers/callees (or imports when there are no calls); the full Upstream/Downstream lists include data sources, consumers, and references. The chosen direction is remembered, and the current source step survives refreshes that keep the same symbol location. Branches, loops, deferred functions, and standard-array patterns are explained without running the project. Example arguments are written source expressions, not observed runtime values.
+The connection tree shows up to four callers/callees (or other available relationship kinds when there are no calls); the full Upstream/Downstream lists include data sources, consumers, and references. The chosen direction is remembered, and the current source step survives refreshes that keep the same symbol location. Branches, loops, deferred functions, and standard-array patterns are explained without running the project. Example arguments are written source expressions, not observed runtime values.
 
 For JavaScript/TypeScript, a module means the nearest indexed named package, falling back to the selected file's directory. For the new languages it means the selected file's directory. Function/class scales use the enclosing declaration where one exists; unavailable scales are not invented. JavaScript/TypeScript expression analysis uses the expression at the caret or selection endpoint. Java/Python expression scope explains the containing declaration; HTML/CSS selects an element, rule, or property. Arbitrary multi-statement slices are not analyzed.
+
+### A visual lesson, inside the editor
+
+The panel uses flat study-note layouts: blue upstream branches, an ochre current symbol, green downstream branches, behavior tables, and source code paired with its explanation. Colors supplement the written relationship labels. Narrow panels stack the tree and source walkthrough vertically; light and dark editor themes are supported. Navigation, source links, and Back work across every lesson.
+
+![The checkout lesson with its caller and dependency tree](docs/lesson-panel.png)
 
 ### Commands
 

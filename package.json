@@ -2,7 +2,7 @@
   "name": "code-teach",
   "displayName": "Code Teach",
   "description": "Learn Java, JavaScript/TypeScript, Python, HTML and CSS through source-backed explanations and code connections.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "code-teach-local",
   "license": "MIT",
   "engines": {
