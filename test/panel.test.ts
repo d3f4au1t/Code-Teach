@@ -6,7 +6,7 @@ import { renderPanel } from '../src/panel';
 
 const source: SourceLink = { file: '/project/src/price.ts', start: 10, end: 40, label: 'price' };
 const explanation: Explanation = {
-  sourceCode: 'return quantity * 2;', steps: [{title:'Give back the result',detail:'Multiply quantity by 2.',kind:'return',code:'return quantity * 2;',source}], examples: [{code:'price(3)',source,bindings:[{parameter:'quantity',argument:'3'}],note:'Not executed.'}],
+  sourceCode: 'return quantity * 2;', steps: [{title:'Return',detail:'Multiply quantity by 2.',kind:'return',code:'return quantity * 2;',source}], examples: [{code:'price(3)',source,bindings:[{parameter:'quantity',argument:'3'}],note:'Not executed.'}],
   id: 'price', name: 'price', kind: 'function', scope: 'function', source,
   summary: 'Calculates a price.', role: 'Used by checkout to price the basket.', signature: '(quantity: number): number',
   inputs: ['quantity: number'], outputs: ['number'], effects: [], notes: ['Runtime values cannot be determined.'],
@@ -19,7 +19,7 @@ const history = [{ name: 'project', query: { file: source.file, offset: 0 } }, {
 
 test('panel includes scales, precise relationships, source links, navigation and uncertainty', () => {
   const html = renderPanel(explanation, history);
-  for (const label of ['Its role in this project', 'Inputs', 'Outputs', 'Side effects', 'Upstream', 'Downstream', 'Source evidence', 'Explore inside', 'caller', 'callee', 'verified', 'inferred']) assert.ok(html.includes(label), label);
+  for (const label of ['Usage', 'Inputs', 'Outputs', 'Side effects', 'Upstream', 'Downstream', 'Sources', 'Contents', 'caller', 'callee', 'verified', 'inferred']) assert.ok(html.includes(label), label);
   for (const scope of ['expression', 'function', 'class', 'file', 'module', 'project']) assert.ok(html.includes(`data-scope="${scope}"`));
   assert.match(html, /data-action="source" data-index="-1"/);
   assert.match(html, /data-action="breadcrumb" data-index="1" aria-current="page"/);
@@ -138,5 +138,5 @@ test('connection tree includes data and style paths with their original navigati
   assert.match(map,/<strong>button<\/strong>/);
   assert.match(map,/<small>index.html<\/small>/);
   assert.match(map,/data-index="0" disabled/);
-  assert.match(html,/<table class="io-table"><caption>Inputs, outputs & side effects<\/caption>/);
+  assert.match(html,/<table class="io-table"><caption>Behavior summary<\/caption>/);
 });

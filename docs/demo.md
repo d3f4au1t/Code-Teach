@@ -25,9 +25,9 @@ From the extension folder, run `npm ci` and `npm run compile`. Open that folder 
 
 Hover the `checkout` declaration. Code Teach's hover describes its documented purpose: turn a cart into a saved order. Its source-backed project role identifies the containing file, upstream callers, and downstream work.
 
-Choose **Explain more**. The persistent panel shows a clickable caller → checkout → dependency map. In **Read it step by step**, choose **1** to see `const total = calculateTotal(prices);`, then **2** to see `return saveOrder(customerId, total);`. **Show line in source** selects that exact statement.
+Choose **Explain more**. The persistent panel shows a clickable caller → checkout → dependency map. In **Steps**, choose **1** to see `const total = calculateTotal(prices);`, then **2** to see `return saveOrder(customerId, total);`. **Open line** selects that exact statement.
 
-Under **See a real call**, the test supplies `[12, 8]` to `prices` and `'customer-1'` to `customerId`. This is actual call-site source, not code executed by the extension. Inputs, outputs, and effects are in an expandable section. Documentation is author intent; the linked definitions and call sites establish the written connections. A call to `saveOrder` does not prove all of its effects at the `checkout` level—follow that dependency to investigate it.
+Under **Examples**, the test supplies `[12, 8]` to `prices` and `'customer-1'` to `customerId`. This is actual call-site source, not code executed by the extension. Inputs, outputs, and effects appear in the Behavior table. Documentation is author intent; the linked definitions and call sites establish the written connections. A call to `saveOrder` does not prove all of its effects at the `checkout` level—follow that dependency to investigate it.
 
 ## 2. Visit an upstream caller
 
@@ -58,7 +58,7 @@ The extension only reads and selects source; these edits are made by you. For an
 
 ## Explore from the larger picture
 
-Run **Code Teach: Explore Project**, then use **Explore inside** to select `src/checkout.ts` and its `checkout` symbol. **Module** shows the containing indexed package or directory. **File**, **Class**, **Function**, and **Expression** narrow the view where the selected source supports those scales.
+Run **Code Teach: Explore Project**, then use **Contents** to select `src/checkout.ts` and its `checkout` symbol. **Module** shows the containing indexed package or directory. **File**, **Class**, **Function**, and **Expression** narrow the view where the selected source supports those scales.
 
 Connections expand only when selected. Back and breadcrumbs retain the path, and revisiting a location collapses a cycle rather than expanding indefinitely. See the [README](../README.md) for exclusions and unsupported behavior and [performance measurements](performance.md) for measured limits.
 

@@ -7,7 +7,7 @@ const text = (node: ts.Node, limit = 180) => node.getText().replace(/\s+/g, ' ')
 export function teachingSteps(body: ts.Node, link: (node: ts.Node) => SourceLink): { steps: TeachingStep[]; truncated: boolean } {
   const statements = ts.isBlock(body) || ts.isSourceFile(body) ? [...body.statements] : [body];
   const steps = statements.slice(0, 12).map((node): TeachingStep => {
-    let title = 'Evaluate this code', detail = 'Read this expression in the surrounding scope.', kind: TeachingStep['kind'] = 'compute';
+    let title = 'Expression', detail = 'Read this expression in the surrounding scope.', kind: TeachingStep['kind'] = 'compute';
     const declaration = ts.isVariableStatement(node) && node.declarationList.declarations.length === 1 ? node.declarationList.declarations[0] : ts.isVariableDeclaration(node) ? node : undefined;
     if (declaration) {
       title = `Calculate ${text(declaration.name, 60)}`;
@@ -18,27 +18,27 @@ export function teachingSteps(body: ts.Node, link: (node: ts.Node) => SourceLink
       }
     } else if (ts.isReturnStatement(node) || (ts.isExpression(node) && ts.isArrowFunction(node.parent) && node.parent.body === node)) {
       const expression = ts.isReturnStatement(node) ? node.expression : node;
-      title = 'Give back the result'; kind = 'return';
+      title = 'Return'; kind = 'return';
       detail = expression ? `Give ${ts.isCallExpression(expression) ? `the result of ${text(expression)}` : text(expression)} back to the caller.` : 'End this call without a value (undefined).';
     } else if (ts.isIfStatement(node)) {
-      title = 'Choose a branch'; kind = 'branch';
+      title = 'Condition'; kind = 'branch';
       detail = `When ${text(node.expression)} is true, take the first branch.${node.elseStatement ? ' Otherwise, take the else branch.' : ' Otherwise, continue after it.'} The chosen path depends on the inputs.`;
     } else if (ts.isSwitchStatement(node)) {
-      title = 'Choose a matching case'; kind = 'branch'; detail = `Compare ${text(node.expression)} with the case labels. Execution can continue into the next case unless a break or return stops it.`;
+      title = 'Switch'; kind = 'branch'; detail = `Compare ${text(node.expression)} with the case labels. Execution can continue into the next case unless a break or return stops it.`;
     } else if (ts.isForStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node) || ts.isWhileStatement(node) || ts.isDoStatement(node)) {
-      title = 'Repeat a step'; kind = 'loop'; detail = 'This loop can run its body repeatedly. The condition or collection decides how many times; do not treat it as one execution.';
+      title = 'Loop'; kind = 'loop'; detail = 'This loop can run its body repeatedly. The condition or collection decides how many times; do not treat it as one execution.';
     } else if (ts.isThrowStatement(node)) {
-      title = 'Stop with an error'; kind = 'effect'; detail = `Throw ${text(node.expression)}. The caller needs to catch the error, or it propagates outward.`;
+      title = 'Throw'; kind = 'effect'; detail = `Throw ${text(node.expression)}. The caller needs to catch the error, or it propagates outward.`;
     } else if (ts.isTryStatement(node)) {
-      title = 'Handle failure'; kind = 'branch'; detail = 'Try the main block. A catch handles thrown errors; a finally block runs when control leaves the try/catch.';
+      title = 'Error handling'; kind = 'branch'; detail = 'Try the main block. A catch handles thrown errors; a finally block runs when control leaves the try/catch.';
     } else if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) {
-      title = 'Define reusable behavior'; kind = 'declaration'; detail = ts.isFunctionDeclaration(node)
+      title = 'Declaration'; kind = 'declaration'; detail = ts.isFunctionDeclaration(node)
         ? 'Define a function. This does not run its body; follow the function to inspect it.'
         : 'Define a class. Instance methods run when called; static fields and static blocks can run during class creation.';
     } else if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-      title = 'Connect another module'; kind = 'declaration'; detail = 'This declaration connects names between files. Follow the import relationship to open its source.';
+      title = 'Module link'; kind = 'declaration'; detail = 'This declaration connects names between files. Follow the import relationship to open its source.';
     } else if (ts.isExpressionStatement(node)) {
-      title = 'Perform an operation'; detail = `Evaluate ${text(node.expression)}. Its result is not explicitly returned by this statement; the operation may change state.`;
+      title = 'Operation'; detail = `Evaluate ${text(node.expression)}. Its result is not explicitly returned by this statement; the operation may change state.`;
     }
     const code = node.getText();
     return { title, detail, kind, code: code.length > 600 ? `${code.slice(0, 600)}\n…` : code, source: link(node) };

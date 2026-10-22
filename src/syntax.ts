@@ -318,16 +318,16 @@ export class SyntaxAnalyzer {
   private steps(u:Unit):TeachingStep[] {
     const statements=u.kind==='file'?children(u.node):u.kind==='element'?children(u.node).filter(n=>['OpenTag','SelfClosingTag','Text','Element'].includes(n.name)):u.body?children(u.body):[u.node];
     return statements.filter(n=>!['{','}',':',';'].includes(n.name)).slice(0,8).map(n=>{
-      const code=getText(u.file,n);let title='Read this statement',detail='This is the source written at this location.',kind:TeachingStep['kind']='compute';
-      if(n.name==='ReturnStatement'){title='Give back a result';detail=`Return ${compact(code.replace(/^return\s*|;$/g,''))||'without a value'} to the caller.`;kind='return';}
-      else if(/^(If|Switch|Match|Try)/.test(n.name)){title='Choose a path';detail='Conditions or exceptions decide which block runs. These branches are not executed by Code Teach.';kind='branch';}
-      else if(/^(For|EnhancedFor|While|DoStatement)/.test(n.name)){title='Repeat a block';detail='Run this block for the written loop condition or iterable. The iteration count is not known statically.';kind='loop';}
-      else if(/^(AssignStatement|ExpressionStatement)$/.test(n.name) && /^(?:self|this)\.[\w.]+\s*=(?!=)/.test(code.trim())){title='Change object state';detail=`Write to the object state shown in ${compact(code)}.`;kind='effect';}
-      else if(/^(AssignStatement|LocalVariableDeclaration|VariableDeclarator|FieldDeclaration|FormalParameter)/.test(n.name)){title='Store or receive a value';detail=`${compact(code)} gives a value a name for later use.`;kind='declaration';}
-      else if(n.name==='Declaration'){title='Set a style value';detail=`Declare ${compact(code)} for matching elements. Other rules can override this value.`;kind='effect';}
-      else if(['FunctionDefinition','MethodDeclaration','ClassDefinition','ClassDeclaration','ConstructorDeclaration'].includes(n.name)){title='Define reusable code';detail='This declares code for later use; declaring it does not mean its body runs now.';kind='declaration';}
-      else if(['OpenTag','SelfClosingTag','Element'].includes(n.name)){title='Build document structure';detail='This tag and its attributes describe an element in the page. Linked resources and styles can affect it.';kind='declaration';}
-      if(title==='Read this statement' && /ExpressionStatement/.test(n.name) && children(n).some(c=>['CallExpression','MethodInvocation'].includes(c.name))) { title='Call another operation'; detail='Pass the written arguments to this operation. Follow Downstream to inspect the candidate implementation and its effects.'; }
+      const code=getText(u.file,n);let title='Statement',detail='This is the source written at this location.',kind:TeachingStep['kind']='compute';
+      if(n.name==='ReturnStatement'){title='Return';detail=`Return ${compact(code.replace(/^return\s*|;$/g,''))||'without a value'} to the caller.`;kind='return';}
+      else if(/^(If|Switch|Match|Try)/.test(n.name)){title='Branch';detail='Conditions or exceptions decide which block runs. These branches are not executed by Code Teach.';kind='branch';}
+      else if(/^(For|EnhancedFor|While|DoStatement)/.test(n.name)){title='Loop';detail='Run this block for the written loop condition or iterable. The iteration count is not known statically.';kind='loop';}
+      else if(/^(AssignStatement|ExpressionStatement)$/.test(n.name) && /^(?:self|this)\.[\w.]+\s*=(?!=)/.test(code.trim())){title='State change';detail=`Write to the object state shown in ${compact(code)}.`;kind='effect';}
+      else if(/^(AssignStatement|LocalVariableDeclaration|VariableDeclarator|FieldDeclaration|FormalParameter)/.test(n.name)){title='Named value';detail=`${compact(code)} gives a value a name for later use.`;kind='declaration';}
+      else if(n.name==='Declaration'){title='Style declaration';detail=`Declare ${compact(code)} for matching elements. Other rules can override this value.`;kind='effect';}
+      else if(['FunctionDefinition','MethodDeclaration','ClassDefinition','ClassDeclaration','ConstructorDeclaration'].includes(n.name)){title='Declaration';detail='This declares code for later use; declaring it does not mean its body runs now.';kind='declaration';}
+      else if(['OpenTag','SelfClosingTag','Element'].includes(n.name)){title='Element';detail='This tag and its attributes describe an element in the page. Linked resources and styles can affect it.';kind='declaration';}
+      if(title==='Statement' && /ExpressionStatement/.test(n.name) && children(n).some(c=>['CallExpression','MethodInvocation'].includes(c.name))) { title='Call'; detail='Pass the written arguments to this operation. Follow Downstream to inspect the candidate implementation and its effects.'; }
       return {title,detail,kind,code:short(code,700),source:link(u,n)};
     });
   }
